@@ -1,0 +1,77 @@
+/* Le style de l'app : les tokens du système graphique (deux encres, EB Garamond, Nimbus
+   Sans pour la voix machine). Pas d'ombre, pas de coin arrondi, un seul filet. */
+@import "@ds/tokens/encres.css";
+@import "@ds/tokens/fonts.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--papier);
+  color: var(--encre);
+  font-family: "EB Garamond", serif;
+  font-size: 18px;
+}
+
+body {
+  margin: 0;
+  background: var(--papier);
+}
+
+a {
+  color: var(--encre);
+}
+a:hover {
+  color: var(--minium);
+}
+
+/* La voix machine : commandes, étiquettes, chiffres. */
+button,
+input,
+select,
+textarea,
+.machine {
+  font-family: "Nimbus Sans", sans-serif;
+  font-size: 0.75rem;
+  color: var(--encre);
+}
+
+button {
+  background: transparent;
+  border: var(--filet) solid var(--encre);
+  border-radius: 0;
+  padding: 0.35rem 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+button:hover,
+button[aria-pressed="true"] {
+  color: var(--minium);
+  border-color: var(--minium);
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+input,
+select,
+textarea {
+  background: transparent;
+  border: var(--filet) solid var(--encre);
+  border-radius: 0;
+  padding: 0.3rem 0.4rem;
+}
+textarea {
+  font-family: ui-monospace, monospace;
+  width: 100%;
+}
+
+.rubrique {
+  color: var(--minium);
+  font-style: italic;
+}
