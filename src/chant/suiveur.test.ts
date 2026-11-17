@@ -10,7 +10,7 @@ const DO = 55; // sol2 : le do de la clé, pour le chanteur
 /** Une pièce en notes : [hauteur, phrase, durée]. */
 function piece(notes: [number, number, (1 | 2)?][]): NoteChant[] {
   return notes.map(([hauteur, phrase, duree], indice) => ({
-    indice, hauteur, phrase, duree: duree ?? 1, syllabe: "", source: 0,
+    indice, hauteur, position: 0, phrase, duree: duree ?? 1, syllabe: "", source: 0,
   }));
 }
 

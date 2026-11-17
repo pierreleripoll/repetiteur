@@ -26,3 +26,21 @@ export function midiDe(frequence: number): number {
 export function frequenceDe(midi: number): number {
   return 440 * 2 ** ((midi - 69) / 12);
 }
+
+// La place d'une hauteur sur la portée, en continu : un degré de la gamme par position
+// (ligne ou interligne), un demi-ton hors gamme entre deux. Avec le si bémol, le si♭ est
+// sur la position du si.
+const GAMME = [[0, 0], [2, 1], [4, 2], [5, 3], [7, 4], [9, 5], [11, 6], [12, 7]];
+const GAMME_BEMOL = [[0, 0], [2, 1], [4, 2], [5, 3], [7, 4], [9, 5], [10, 6], [12, 7]];
+
+/** La position sur la portée (0 = do, 7 = do de l'octave) de `demiTons` au-dessus du do. */
+export function positionContinue(demiTons: number, bemol = false): number {
+  const octave = Math.floor(demiTons / 12);
+  const reste = demiTons - 12 * octave;
+  const g = bemol ? GAMME_BEMOL : GAMME;
+  let i = 0;
+  while (reste > g[i + 1][0]) i++;
+  const [h0, p0] = g[i];
+  const [h1, p1] = g[i + 1];
+  return 7 * octave + p0 + ((reste - h0) / (h1 - h0)) * (p1 - p0);
+}

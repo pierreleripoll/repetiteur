@@ -12,6 +12,8 @@ export interface NoteChant {
   indice: number;
   /** demi-tons au-dessus du do de la clé (négatif en dessous) */
   hauteur: number;
+  /** sa place sur la portée : 1 la ligne du bas, 7 celle du haut (exsurge `staffPosition`) */
+  position: number;
   /** la syllabe chantée sur la note */
   syllabe: string;
   /** en pulsations : 2 pour une note pointée */
@@ -89,6 +91,7 @@ function notes(score: Ex.ChantScore): NoteChant[] {
       sortie.push({
         indice: note.noteIndex,
         hauteur: note.pitch.toInt() - reference,
+        position: note.staffPosition,
         syllabe,
         duree: note.morae.length ? 2 : 1,
         phrase,

@@ -144,8 +144,12 @@ def chanter(adresse, tmp_path, ecart_cents: float) -> dict:
                     "--use-fake-device-for-media-stream", f"--use-file-for-fake-audio-capture={fichier}",
                     "--autoplay-policy=no-user-gesture-required")
     try:
+        # L'état de la page, et les pixels peints par la voix sur la portée.
         lire = ("(() => { const m = document.querySelector('main.repetition');"
-                " return m && {...m.dataset, texte: m.innerText}; })()")
+                " const t = document.querySelector('.partition canvas.voix');"
+                " const d = t && t.width ? t.getContext('2d').getImageData(0, 0, t.width, t.height).data : [];"
+                " let trait = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) trait++;"
+                " return m && {...m.dataset, texte: m.innerText, trait}; })()")
         fin = time.monotonic() + 30
         etat = None
         while time.monotonic() < fin:
@@ -163,6 +167,7 @@ def test_le_curseur_suit_la_voix_jusqu_a_la_fin(avec_chrome, adresse, tmp_path):
     assert etat.get("notes") == "21", etat
     assert etat.get("etat") == "fini", etat
     assert "0 note à plus de 25 cents" in etat["texte"], etat["texte"]
+    assert etat["trait"] > 1000, "la voix n'est pas dessinée sur la portée"
 
 
 def test_une_voix_trop_basse_sort_au_minium(avec_chrome, adresse, tmp_path):

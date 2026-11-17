@@ -33,6 +33,7 @@ describe("partition", () => {
     // EC(h')ce(h) quam(g) bo(g)num(e') … : 21 notes, en clé d'ut 4e ligne (j = do).
     expect(p.notes).toHaveLength(21);
     expect(p.notes.slice(0, 5).map((n) => n.hauteur)).toEqual([-3, -3, -5, -5, -8]);
+    expect(p.notes.slice(0, 5).map((n) => n.position)).toEqual([5, 5, 4, 4, 2]);   // h h g g e
     expect(p.notes.map((n) => n.indice)).toEqual([...Array(21).keys()]);
     expect(p.notes[0].syllabe).toBe("EC");
     expect(p.notes[2].syllabe).toBe("quam");

@@ -13,6 +13,7 @@ import { cents, degre, nomNote } from "../chant/solfege";
 import { Calage, Suiveur, type Etat } from "../chant/suiveur";
 import TraceHauteur, { type Ligne } from "../composants/TraceHauteur.vue";
 import VuePartition from "../composants/VuePartition.vue";
+import type { Voix } from "../composants/voixSurPortee";
 import { REGLAGES } from "../reglages";
 import { useRepetition } from "../stores/repetition";
 
@@ -114,6 +115,14 @@ const pas = ref(0);
 const courantes = ref<number[]>([]);
 const fausses = ref<Set<number>>(new Set());
 const derives = ref<{ phrase: number; ecart: number | null }[]>([]);
+/** ce que le chanteur a chanté sur chaque pas (MIDI, null : silence), dessiné sur la
+ * portée ; les tableaux changent sans réactivité, la partition les relit à chaque image */
+const traces = shallowRef<(number | null)[][]>([]);
+
+/** Efface les traits à partir du pas `k`. */
+function effacer(k = 0) {
+  for (let j = k; j < traces.value.length; j++) traces.value[j] = [];
+}
 
 /** Le do qui met la pièce au milieu d'une voix d'homme (sol2 au centre). */
 function doParDefaut(n: NoteChant[]): number {
@@ -128,6 +137,7 @@ function lue(p: Partition) {
   doMidi.value = doDemande ?? reglages.doPour(choix.value!.cle, doParDefaut(p.notes));
   doDemande = null;
   suiveur.value = new Suiveur(p.notes, doMidi.value);
+  traces.value = suiveur.value.pas.map(() => []);
   fausses.value = new Set();
   derives.value = [];
   arreterLecture();
@@ -152,6 +162,7 @@ function majEtat() {
 
 function recommencer() {
   suiveur.value?.recommencer();
+  effacer();
   fausses.value = new Set();
   derives.value = [];
   majEtat();
@@ -160,6 +171,7 @@ function recommencer() {
 function allerA(note: number) {
   if (lecture) return;
   suiveur.value?.allerA(note);
+  if (suiveur.value) effacer(suiveur.value.k);
   fausses.value = new Set();
   majEtat();
 }
@@ -232,9 +244,19 @@ function recevoir(m: Mesure) {
     }
     return;
   }
+  if (s.etat === "fini") return;
   s.recevoir(m);
+  // Le trait du pas courant : depuis la première mesure chantée sur lui.
+  const trace = traces.value[s.k];
+  if (trace && (trace.length || m.midi !== null)) trace.push(m.midi);
   majEtat();
 }
+
+const voixChantee = computed<Voix | null>(() =>
+  suiveur.value
+    ? { pas: suiveur.value.pas, traces: traces.value, doMidi: doMidi.value, courant: etat.value === "fini" ? null : pas.value }
+    : null,
+);
 
 function caler() {
   calageur = new Calage();
@@ -406,6 +428,7 @@ onBeforeUnmount(() => {
         :gabc="choix.gabc"
         :courantes="courantes"
         :fausses="fausses"
+        :voix="voixChantee"
         @lue="lue"
         @choisir="allerA"
         @erreur="(m) => (message = m)"
