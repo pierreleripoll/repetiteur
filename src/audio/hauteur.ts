@@ -13,6 +13,9 @@ export interface Mesure {
   midi: number | null;
   clarte: number;
   volume: number;
+  /** la note entendue, même si elle ne compte pas (voix trop faible, pas assez nette) :
+   * pour voir ce que capte le micro. null si ce n'est que du bruit. */
+  brute: number | null;
 }
 
 export function volume(tampon: Float32Array): number {
@@ -43,14 +46,14 @@ export class Detecteur {
     const r = this.reglages;
     const v = volume(tampon);
     const [frequence, clarte] = this.detecteur.findPitch(tampon, this.frequenceEchantillons);
-    const compte =
-      v >= r.volumeMin && clarte >= r.clarteMin && frequence >= r.frequenceMin && frequence <= r.frequenceMax;
-    if (!compte) {
+    const voix = frequence >= r.frequenceMin && frequence <= r.frequenceMax;
+    const brute = voix && v > 0 && clarte >= r.clarteVue ? midiDe(frequence) : null;
+    if (!voix || v < r.volumeMin || clarte < r.clarteMin) {
       this.recentes = [];
-      return { temps, midi: null, clarte, volume: v };
+      return { temps, midi: null, clarte, volume: v, brute };
     }
     this.recentes.push(midiDe(frequence));
     if (this.recentes.length > r.mediane) this.recentes.shift();
-    return { temps, midi: mediane(this.recentes), clarte, volume: v };
+    return { temps, midi: mediane(this.recentes), clarte, volume: v, brute };
   }
 }

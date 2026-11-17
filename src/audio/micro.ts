@@ -7,6 +7,10 @@ import { audio } from "./contexte";
 
 export interface Micro {
   frequenceEchantillons: number;
+  /** le nom de l'entrée choisie par le navigateur (« Micro interne… ») */
+  nom: string;
+  /** le contexte audio est en pause : l'analyse ne reçoit que des zéros */
+  enPause(): boolean;
   arreter(): void;
 }
 
@@ -27,8 +31,12 @@ export async function ouvrirMicro(
     analyse.getFloatTimeDomainData(tampon);
     surTampon(tampon, ctx.currentTime * 1000);
   }, REGLAGES.periode);
+  const piste = flux.getAudioTracks()[0];
+  console.info("[micro]", piste?.label, piste?.getSettings(), "contexte", ctx.state, ctx.sampleRate);
   return {
     frequenceEchantillons: ctx.sampleRate,
+    nom: piste?.label ?? "",
+    enPause: () => ctx.state !== "running",
     arreter() {
       clearInterval(minuterie);
       source.disconnect();

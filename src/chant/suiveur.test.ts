@@ -26,7 +26,7 @@ class Chanteur {
   /** Tient `midi` pendant `ms` (une mesure toutes les 20 ms). */
   chante(midi: number | null, ms: number) {
     for (let t = 0; t < ms; t += REGLAGES.periode) {
-      this.mesures.push({ temps: this.temps, midi, clarte: midi === null ? 0 : 0.98, volume: 0.1 });
+      this.mesures.push({ temps: this.temps, midi, clarte: midi === null ? 0 : 0.98, volume: 0.1, brute: midi });
       this.temps += REGLAGES.periode;
     }
     return this;

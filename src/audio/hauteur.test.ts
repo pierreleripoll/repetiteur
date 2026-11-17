@@ -45,6 +45,14 @@ describe("hauteur", () => {
     expect(d.mesurer(bruit, 20).midi).toBeNull();
   });
 
+  it("une voix trop faible ne compte pas, mais on voit la note captée", () => {
+    const d = new Detecteur(TAILLE, FE);
+    const m = d.mesurer(son(220, undefined, 0, 0.001), 0);
+    expect(m.midi).toBeNull();
+    expect(Math.round(m.brute!)).toBe(57);   // la2
+    expect(d.mesurer(new Float32Array(TAILLE), 20).brute).toBeNull();
+  });
+
   it("la médiane efface une mesure isolée à l'octave", () => {
     const d = new Detecteur(TAILLE, FE);
     for (let k = 0; k < 4; k++) d.mesurer(son(220, undefined, k * TAILLE), k * 20);

@@ -8,8 +8,10 @@ export const REGLAGES = {
   periode: 20,
   /** Hauteur : une mesure compte si sa clarté (McLeod, 0 à 1) atteint ce seuil… */
   clarteMin: 0.9,
-  /** … et si le volume (RMS du signal, 0 à 1) le dépasse. */
-  volumeMin: 0.01,
+  /** … et si le volume (RMS du signal, 0 à 1) le dépasse (0,003 : −50 dB). */
+  volumeMin: 0.003,
+  /** Hauteur : en dessous de cette clarté, on n'affiche même pas la note captée (du bruit). */
+  clarteVue: 0.5,
   /** Hauteur : les fréquences possibles d'une voix (Hz). */
   frequenceMin: 60,
   frequenceMax: 1100,

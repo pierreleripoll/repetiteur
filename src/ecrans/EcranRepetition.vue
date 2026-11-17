@@ -11,6 +11,7 @@ import { bourdon, donnerLeTon, jouer } from "../audio/son";
 import type { NoteChant, Partition } from "../chant/partition";
 import { cents, degre, nomNote } from "../chant/solfege";
 import { Calage, Suiveur, type Etat } from "../chant/suiveur";
+import Accordeur from "../composants/Accordeur.vue";
 import TraceHauteur, { type Ligne } from "../composants/TraceHauteur.vue";
 import VuePartition from "../composants/VuePartition.vue";
 import type { Voix } from "../composants/voixSurPortee";
@@ -198,6 +199,8 @@ const nomDo = computed(() => {
 // --- Le micro -----------------------------------------------------------------------
 let micro: Micro | null = null;
 const microOuvert = ref(false);
+const nomMicro = ref("");
+const enPause = ref(false);
 const calage = ref(false);
 let calageur = new Calage();
 const mesures: Mesure[] = [];
@@ -219,6 +222,7 @@ async function basculerMicro() {
       recevoir(detecteur.mesurer(tampon, temps));
     });
     microOuvert.value = true;
+    nomMicro.value = micro.nom;
   } catch (e) {
     message.value = `Micro refusé ou absent : ${e instanceof Error ? e.message : e}`;
   }
@@ -234,6 +238,7 @@ function recevoir(m: Mesure) {
   mesures.push(m);
   while (mesures.length && m.temps - mesures[0].temps > 10_000) mesures.shift();
   derniere.value = m;
+  enPause.value = micro?.enPause() ?? false;
   const s = suiveur.value;
   if (!s || lecture) return;
   if (calage.value) {
@@ -317,15 +322,6 @@ const consigne = computed(() => {
   const c = cible.value!;
   const nom = `${degre(c - doMidi.value)} (${nomNote(c)})`;
   return etat.value === "attente" ? `Attaquez ${nom}.` : `Chantez ${nom}.`;
-});
-
-const voix = computed(() => {
-  const m = derniere.value;
-  if (!microOuvert.value || !m) return "";
-  if (m.midi === null) return "—";
-  const c = cible.value;
-  if (c !== null && Math.abs(m.midi - c) <= 3) return `vous : ${nomNote(m.midi)}, ${cents((m.midi - c) * 100)}`;
-  return `vous : ${nomNote(m.midi)}`;
 });
 
 const bilan = computed(() =>
@@ -419,10 +415,8 @@ onBeforeUnmount(() => {
         <label class="machine"><input v-model="reglages.voixGrave" type="checkbox" /> voix grave</label>
       </section>
 
-      <p class="etat">
-        <span>{{ consigne }}</span>
-        <span class="machine voix">{{ voix }}</span>
-      </p>
+      <p class="etat">{{ consigne }}</p>
+      <Accordeur v-if="microOuvert" :mesure="derniere" :cible="cible" :micro="nomMicro" :en-pause="enPause" />
 
       <VuePartition
         :gabc="choix.gabc"
@@ -499,14 +493,8 @@ h1 {
   gap: 0.4rem;
 }
 .etat {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
   min-height: 1.5rem;
-  margin: 0.8rem 0;
-}
-.voix {
-  font-size: 0.9rem;
+  margin: 0.8rem 0 0.4rem;
 }
 .bilan {
   margin: 1rem 0;
