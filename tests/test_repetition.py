@@ -41,16 +41,17 @@ DO = 55            # sol2 : le do de la clé pour ce chanteur
 PULSATION = 0.3    # s
 
 
-def wav(chemin, notes, ecart_cents=0.0) -> None:
-    """Une voix simple (fondamentale et harmoniques) qui chante `notes`, après un silence."""
-    echantillons = [0.0] * int(1.5 * FE)
+def wav(chemin, notes, ecart_cents=0.0, continu=0.0) -> None:
+    """Une voix simple (fondamentale et harmoniques) qui chante `notes`, après un silence.
+    `continu` : un décalage continu, comme le micro interne du ThinkPad (+0,2 en mono)."""
+    echantillons = [continu] * int(1.5 * FE)
     phase = 0.0
     for hauteur, duree in notes:
         f = 440 * 2 ** ((DO + hauteur + ecart_cents / 100 - 69) / 12)
         for _ in range(int(duree * PULSATION * FE)):
             phase += 2 * math.pi * f / FE
-            echantillons.append(0.25 * (math.sin(phase) + 0.5 * math.sin(2 * phase) + 0.3 * math.sin(3 * phase)))
-    echantillons += [0.0] * int(3 * FE)
+            echantillons.append(continu + 0.25 * (math.sin(phase) + 0.5 * math.sin(2 * phase) + 0.3 * math.sin(3 * phase)))
+    echantillons += [continu] * int(3 * FE)
     with wave.open(str(chemin), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
@@ -135,10 +136,10 @@ def adresse(tmp_path):
     fil.join(5)
 
 
-def chanter(adresse, tmp_path, ecart_cents: float) -> dict:
+def chanter(adresse, tmp_path, ecart_cents: float, continu=0.0) -> dict:
     """Le faux micro chante l'antienne ; l'état de la page à la fin (ou après 30 s)."""
     fichier = tmp_path / "voix.wav"
-    wav(fichier, ECCE, ecart_cents)
+    wav(fichier, ECCE, ecart_cents, continu)
     chrome = Chrome(f"{adresse}/repetition?programme=essai&piece=antienne&do={DO}&micro=1",
                     f"--user-data-dir={tmp_path / 'profil'}", "--use-fake-ui-for-media-stream",
                     "--use-fake-device-for-media-stream", f"--use-file-for-fake-audio-capture={fichier}",
@@ -163,7 +164,8 @@ def chanter(adresse, tmp_path, ecart_cents: float) -> dict:
 
 
 def test_le_curseur_suit_la_voix_jusqu_a_la_fin(avec_chrome, adresse, tmp_path):
-    etat = chanter(adresse, tmp_path, 0)
+    """Avec le décalage continu du micro interne du ThinkPad : le premier essai de Pierre."""
+    etat = chanter(adresse, tmp_path, 0, continu=0.2)
     assert etat.get("notes") == "21", etat
     assert etat.get("etat") == "fini", etat
     assert "0 note à plus de 25 cents" in etat["texte"], etat["texte"]

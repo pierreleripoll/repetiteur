@@ -53,6 +53,15 @@ describe("hauteur", () => {
     expect(d.mesurer(new Float32Array(TAILLE), 20).brute).toBeNull();
   });
 
+  it("trouve la voix malgré un décalage continu (le micro interne du ThinkPad : +0,2)", () => {
+    const d = new Detecteur(TAILLE, FE);
+    const m = d.mesurer(son(110, undefined, 0, 0.02).map((x) => x + 0.2), 0);
+    expect(Math.abs((m.midi! - midiDe(110)) * 100)).toBeLessThan(5);
+    // Le volume est celui de la voix, sans le décalage.
+    expect(m.volume).toBeLessThan(0.03);
+    expect(d.mesurer(new Float32Array(TAILLE).fill(0.2), 20).volume).toBe(0);
+  });
+
   it("la médiane efface une mesure isolée à l'octave", () => {
     const d = new Detecteur(TAILLE, FE);
     for (let k = 0; k < 4; k++) d.mesurer(son(220, undefined, k * TAILLE), k * 20);

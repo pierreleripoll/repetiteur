@@ -1,6 +1,11 @@
 // La hauteur de la voix, mesure par mesure : la méthode de McLeod (pitchy, MIT) donne une
 // fréquence et sa clarté (0 à 1). Une médiane sur les dernières mesures enlève les sauts
 // d'octave isolés.
+//
+// On retire d'abord la moyenne de la fenêtre. Le micro interne du ThinkPad a un fort
+// décalage continu (+0,09 et +0,33 sur ses deux canaux) : avec lui, le volume ne dit rien
+// (−14 dB dans le silence) et McLeod ne trouve pas la période. D'habitude, le filtre
+// passe-haut du navigateur l'enlève, mais on coupe ses traitements (`micro.ts`).
 
 import { PitchDetector } from "pitchy";
 import { midiDe } from "../chant/solfege";
@@ -33,6 +38,7 @@ function mediane(valeurs: number[]): number {
 export class Detecteur {
   private detecteur: PitchDetector<Float32Array>;
   private recentes: number[] = [];
+  private travail: Float32Array;
 
   constructor(
     taille: number,
@@ -40,12 +46,18 @@ export class Detecteur {
     private reglages: Reglages = REGLAGES,
   ) {
     this.detecteur = PitchDetector.forFloat32Array(taille);
+    this.travail = new Float32Array(taille);
   }
 
   mesurer(tampon: Float32Array, temps: number): Mesure {
     const r = this.reglages;
-    const v = volume(tampon);
-    const [frequence, clarte] = this.detecteur.findPitch(tampon, this.frequenceEchantillons);
+    let moyenne = 0;
+    for (let i = 0; i < tampon.length; i++) moyenne += tampon[i];
+    moyenne /= tampon.length;
+    const t = this.travail;
+    for (let i = 0; i < t.length; i++) t[i] = tampon[i] - moyenne;
+    const v = volume(t);
+    const [frequence, clarte] = this.detecteur.findPitch(t, this.frequenceEchantillons);
     const voix = frequence >= r.frequenceMin && frequence <= r.frequenceMax;
     const brute = voix && v > 0 && clarte >= r.clarteVue ? midiDe(frequence) : null;
     if (!voix || v < r.volumeMin || clarte < r.clarteMin) {
