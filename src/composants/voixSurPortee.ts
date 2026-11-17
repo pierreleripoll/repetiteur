@@ -1,5 +1,7 @@
 // La voix dessinée sur la portée, comme un trait de crayon rouge : sur chaque pas de la
-// pièce, ce que le chanteur a chanté pendant que le curseur y était.
+// pièce, ce que le chanteur a chanté pendant que le curseur y était. La portée est celle
+// d'exsurge (`mesurer`) ou celle de Verovio (`mesurerVerovio`) : il suffit de savoir où est
+// chaque note et la hauteur d'une position (un degré : une demi-interligne).
 //
 // Le suiveur dit où en est le chanteur (le pas `k`) : le trait part de la note de ce pas
 // et avance vers le pas suivant, au plus `VITESSE` px par mesure (serré s'il manque de
@@ -21,17 +23,17 @@ export interface Voix {
 }
 
 interface Ligne {
-  /** y (px) de la position 0, et px par position */
-  y0: number;
+  /** px par position (un degré), et le bord droit de la portée */
   pas: number;
   droite: number;
 }
 
 /** La géométrie d'une partition gravée, en px depuis le coin de `boite`. */
 export interface Geometrie {
+  /** une par système (ligne de musique) */
   lignes: Ligne[];
-  /** pour chaque note : x de son centre et sa ligne */
-  notes: { x: number; ligne: number }[];
+  /** pour chaque note : le centre de sa tête, et son système */
+  notes: { x: number; y: number; ligne: number }[];
 }
 
 const VITESSE = 1.5; // px par mesure (une toutes les 20 ms)
@@ -41,23 +43,46 @@ const TROU = 3; // mesures sans hauteur à la suite : en dessous, le trait conti
 export function mesurer(boite: HTMLElement, svg: SVGElement, notes: NoteChant[], prefixe = "note-"): Geometrie {
   const origine = boite.getBoundingClientRect();
   const groupes = [...svg.querySelectorAll("g.chantLine")];
+  const y0: number[] = [];
   const lignes: Ligne[] = groupes.map((g) => {
     // Les quatre lignes de la portée : positions 7 (haut) à 1 (bas).
     const traits = [...g.querySelectorAll("line.staffLine")].map((l) => l.getBoundingClientRect());
     const haut = Math.min(...traits.map((r) => r.top));
     const bas = Math.max(...traits.map((r) => r.bottom));
     const pas = (bas - haut) / 6;
-    return { y0: bas - origine.top + pas, pas, droite: Math.max(...traits.map((r) => r.right)) - origine.left };
+    y0.push(bas - origine.top + pas);   // la position 0
+    return { pas, droite: Math.max(...traits.map((r) => r.right)) - origine.left };
   });
-  let precedente = { x: 0, ligne: 0 };
+  let precedente = { x: 0, y: 0, ligne: 0 };
   const sortie = notes.map((n) => {
     const glyphe = svg.querySelector(`[id="${prefixe}${n.indice + 1}"]`);
     const r = glyphe?.getBoundingClientRect();
     // La fin d'un porrectus n'a pas de glyphe à elle : on garde la note d'avant.
     if (!glyphe || !r || (r.width === 0 && r.height === 0)) return precedente;
-    const ligne = groupes.findIndex((g) => g.contains(glyphe));
-    precedente = { x: r.left + r.width / 2 - origine.left, ligne: Math.max(ligne, 0) };
+    const ligne = Math.max(groupes.findIndex((g) => g.contains(glyphe)), 0);
+    precedente = { x: r.left + r.width / 2 - origine.left, y: y0[ligne] - n.position * lignes[ligne].pas, ligne };
     return precedente;
+  });
+  return { lignes, notes: sortie };
+}
+
+/** La géométrie de Verovio, pour les notes d'une voix (leurs `g.note` dans le SVG). Les
+ * cinq lignes d'une portée sont les cinq premiers `path` de son `g.staff`. */
+export function mesurerVerovio(boite: HTMLElement, notes: Element[]): Geometrie {
+  const origine = boite.getBoundingClientRect();
+  const systemes = [...boite.querySelectorAll("g.system")];
+  const lignes: Ligne[] = systemes.map((s) => ({ pas: 0, droite: s.getBoundingClientRect().right - origine.left }));
+  const sortie = notes.map((n) => {
+    const tete = (n.querySelector("g.notehead") ?? n).getBoundingClientRect();
+    const ligne = Math.max(systemes.findIndex((s) => s.contains(n)), 0);
+    if (lignes[ligne] && !lignes[ligne].pas) {
+      const traits = [...(n.closest("g.staff")?.querySelectorAll(":scope > path") ?? [])].slice(0, 5)
+        .map((t) => t.getBoundingClientRect());
+      if (traits.length === 5) {
+        lignes[ligne].pas = (Math.max(...traits.map((t) => t.bottom)) - Math.min(...traits.map((t) => t.top))) / 8;
+      }
+    }
+    return { x: tete.left + tete.width / 2 - origine.left, y: tete.top + tete.height / 2 - origine.top, ligne };
   });
   return { lignes, notes: sortie };
 }
@@ -132,7 +157,7 @@ export function dessiner(
         return;
       }
       const x = ici.x + i * pasX;
-      const y = ligne.y0 - (note.position + ecart) * ligne.pas;
+      const y = ici.y - ecart * ligne.pas;
       if (leve) g.moveTo(x, y);
       else g.lineTo(x, y);
       leve = false;

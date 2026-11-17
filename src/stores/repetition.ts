@@ -1,5 +1,5 @@
 // Ce que la répétition garde d'une fois sur l'autre, dans ce navigateur : le do choisi
-// pour chaque pièce, la voix grave.
+// pour chaque pièce, la voix chantée d'une pièce à plusieurs voix, la voix grave.
 
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
@@ -34,5 +34,15 @@ export const useRepetition = defineStore("repetition", () => {
     ecrireLocal(`scriptorium:do:${cle}`, String(midi));
   }
 
-  return { voixGrave, doPour, garderDo };
+  /** La voix chantée dans la pièce à plusieurs voix `cle`, ou `defaut`. */
+  function voixPour(cle: string, defaut: number): number {
+    const v = lireLocal(`scriptorium:voix:${cle}`);
+    return v !== null && Number.isInteger(Number(v)) ? Number(v) : defaut;
+  }
+
+  function garderVoix(cle: string, rang: number): void {
+    ecrireLocal(`scriptorium:voix:${cle}`, String(rang));
+  }
+
+  return { voixGrave, doPour, garderDo, voixPour, garderVoix };
 });

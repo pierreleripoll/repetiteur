@@ -17,5 +17,7 @@ export default defineConfig({
     fs: { allow: [".", DS] },
     proxy: { "/api": `http://127.0.0.1:${SERVEUR}` },
   },
+  // Verovio (gravure des pièces à plusieurs voix) pèse 8 Mo : chargé à part, à la demande.
+  build: { chunkSizeWarningLimit: 9000 },
   test: { environment: "node" },
 });

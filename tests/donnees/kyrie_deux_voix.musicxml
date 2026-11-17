@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Une pièce à deux voix faite pour les tests (pas une vraie pièce) : un silence au milieu
+     (deux phrases), et les altérations de l'éditeur écrites en paroles n° 9, comme dans les
+     MusicXML de Franco : « # » sur le do de la basse (do♯), « ♭ » sur le si du dessus (si♭). -->
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise>
+  <work><work-title>Kyrie à deux voix</work-title></work>
+  <part-list>
+    <score-part id="P1"><part-name>Superius</part-name></score-part>
+    <score-part id="P2"><part-name>Bassus</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>2</beats><beat-type>2</beat-type></time>
+        <clef><sign>G</sign><line>2</line></clef>
+      </attributes>
+      <sound tempo="120"/>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>begin</syllabic><text>Ky</text></lyric></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>middle</syllabic><text>ri</text></lyric></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>end</syllabic><text>e</text></lyric></note>
+      <note><rest/><duration>2</duration><type>half</type></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>begin</syllabic><text>e</text></lyric></note>
+      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>middle</syllabic><text>le</text></lyric>
+        <lyric number="9"><syllabic>single</syllabic><text>♭</text></lyric></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>middle</syllabic><text>i</text></lyric></note>
+      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>end</syllabic><text>son.</text></lyric></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline>
+    </measure>
+  </part>
+  <part id="P2">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key><fifths>0</fifths></key>
+        <time><beats>2</beats><beat-type>2</beat-type></time>
+        <clef><sign>F</sign><line>4</line></clef>
+      </attributes>
+      <note><pitch><step>D</step><octave>3</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>begin</syllabic><text>Ky</text></lyric></note>
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>middle</syllabic><text>ri</text></lyric></note>
+    </measure>
+    <measure number="2">
+      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>end</syllabic><text>e</text></lyric></note>
+      <note><rest/><duration>2</duration><type>half</type></note>
+    </measure>
+    <measure number="3">
+      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>begin</syllabic><text>e</text></lyric></note>
+      <note><pitch><step>C</step><octave>3</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>middle</syllabic><text>le</text></lyric>
+        <lyric number="9"><syllabic>single</syllabic><text>#</text></lyric></note>
+    </measure>
+    <measure number="4">
+      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>middle</syllabic><text>i</text></lyric></note>
+      <note><pitch><step>D</step><octave>3</octave></pitch><duration>2</duration><type>half</type>
+        <lyric number="1"><syllabic>end</syllabic><text>son.</text></lyric></note>
+      <barline location="right"><bar-style>light-heavy</bar-style></barline>
+    </measure>
+  </part>
+</score-partwise>

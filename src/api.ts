@@ -11,6 +11,8 @@ export interface PieceProgramme {
   titre: string;
   incipit: string;
   gabc: string | null;
+  /** une pièce à plusieurs voix : son MusicXML (et pas de GABC) */
+  musicxml: string | null;
   ton: string | null;
   mode: string | null;
   avant: string;

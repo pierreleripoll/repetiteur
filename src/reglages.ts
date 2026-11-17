@@ -34,6 +34,9 @@ export const REGLAGES = {
   /** Calage sur la voix : une note tenue `calageDuree` ms, à `calageEcart` cents près. */
   calageDuree: 300,
   calageEcart: 30,
+  /** Chanter avec les autres voix : le retard du micro (ms), retiré avant de placer une
+   * mesure dans la pièce. */
+  latence: 80,
   /** Lecture : la pulsation (ms par note ; une note pointée en vaut deux). */
   pulsation: 450,
 } as const;

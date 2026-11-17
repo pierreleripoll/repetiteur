@@ -17,6 +17,9 @@ importers:
       pitchy:
         specifier: ^4.1.0
         version: 4.1.0
+      verovio:
+        specifier: 6.4.1
+        version: 6.4.1
       vue:
         specifier: ^3.5.45
         version: 3.5.45(typescript@6.0.3)
@@ -760,6 +763,10 @@ packages:
         optional: true
       webpack:
         optional: true
+
+  verovio@6.4.1:
+    resolution: {integrity: sha512-+5exuA63AC0FHFo0L/4BlcF6EpEOWIp81pwz/afMupxss/tsrdVLxX8Pqh9QFzUOXcB4mP9Box4xc+hrkKN+LA==}
+    engines: {node: '>= 14.18.0'}
 
   vite@8.3.8:
     resolution: {integrity: sha512-LzOn3h9rG/0vhLdXrV4yJ4QFA9eEoqCl+Yx+kGJd7aB9w6nfNgVHKSYwLPZUHrz4ZGa+t+kXjV9itvcHDLQouA==}
@@ -1554,6 +1561,8 @@ snapshots:
     optionalDependencies:
       rolldown: 1.2.19
       vite: 8.3.8(@types/node@26.6.6)
+
+  verovio@6.4.1: {}
 
   vite@8.3.8(@types/node@26.6.6):
     dependencies:

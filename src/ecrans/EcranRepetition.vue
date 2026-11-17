@@ -2,18 +2,24 @@
 // La répétition : une pièce (d'un programme, de la bibliothèque, ou du GABC collé), le
 // micro, et le curseur qui suit la voix sur la partition. Après la pièce : les notes
 // fausses au minium et l'écart de chaque phrase.
+//
+// Une pièce à plusieurs voix (MusicXML) : le chanteur choisit sa voix, et le suiveur suit
+// celle-là. « Écouter » joue les voix cochées, en mesure ; « Chanter avec » joue les
+// autres, et ce que chante le micro va sur la note de sa voix qui sonne à ce moment.
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api, type PieceBibliotheque, type Programme, type ProgrammeResume } from "../api";
 import { Detecteur, type Mesure } from "../audio/hauteur";
 import { ouvrirMicro, type Micro } from "../audio/micro";
-import { bourdon, donnerLeTon, jouer } from "../audio/son";
+import { bourdon, donnerLeTon, jouer, jouerVoix, type Lecture } from "../audio/son";
 import type { NoteChant, Partition } from "../chant/partition";
 import { cents, degre, nomNote } from "../chant/solfege";
-import { Calage, Suiveur, type Etat } from "../chant/suiveur";
+import { noteA, notesDuSuiveur, voixProche, type Polyphonie } from "../chant/polyphonie";
+import { bilanDesTraces, Calage, Suiveur, type Etat } from "../chant/suiveur";
 import Accordeur from "../composants/Accordeur.vue";
 import TraceHauteur, { type Ligne } from "../composants/TraceHauteur.vue";
 import VuePartition from "../composants/VuePartition.vue";
+import VuePolyphonie from "../composants/VuePolyphonie.vue";
 import type { Voix } from "../composants/voixSurPortee";
 import { REGLAGES } from "../reglages";
 import { useRepetition } from "../stores/repetition";
@@ -23,6 +29,8 @@ interface Choix {
   cle: string;
   titre: string;
   gabc: string;
+  /** une pièce à plusieurs voix : son MusicXML (et `gabc` vide) */
+  musicxml?: string;
   avant?: string;
   apres?: string;
 }
@@ -32,6 +40,8 @@ const routeur = useRouter();
 const reglages = useRepetition();
 /** `?do=55` : le do (MIDI) de la première pièce lue, au lieu de celui gardé. */
 let doDemande = Number.isFinite(Number(route.query.do)) && route.query.do ? Number(route.query.do) : null;
+/** `?voix=1` : la voix chantée de la première pièce à plusieurs voix lue. */
+let voixDemandee = route.query.voix !== undefined && Number.isInteger(Number(route.query.voix)) ? Number(route.query.voix) : null;
 
 // --- Le choix de la pièce ------------------------------------------------------------
 const programmes = ref<ProgrammeResume[]>([]);
@@ -53,17 +63,18 @@ async function choisirProgramme(nom: string, piece?: string) {
     message.value = String(e instanceof Error ? e.message : e);
     return;
   }
-  const notees = programme.value.pieces.filter((p) => p.gabc);
+  const notees = programme.value.pieces.filter((p) => p.gabc || p.musicxml);
   choisirPieceProgramme(notees.find((p) => p.nom === piece)?.nom ?? notees[0]?.nom ?? "");
 }
 
 function choisirPieceProgramme(nom: string) {
   const p = programme.value?.pieces.find((x) => x.nom === nom);
-  if (!p?.gabc || !programme.value) return;
+  if (!(p?.gabc || p?.musicxml) || !programme.value) return;
   choix.value = {
     cle: `programme:${programme.value.nom}/${p.nom}`,
-    titre: `${programme.value.titre} · ${p.nom} · ${p.incipit}`,
-    gabc: p.gabc,
+    titre: `${programme.value.titre} · ${p.titre || p.nom} · ${p.incipit}`,
+    gabc: p.gabc ?? "",
+    musicxml: p.musicxml ?? undefined,
     avant: p.avant,
     apres: p.apres,
   };
@@ -133,11 +144,54 @@ function doParDefaut(n: NoteChant[]): number {
 }
 
 function lue(p: Partition) {
+  polyphonie.value = null;
+  lueNotes(p.notes, doParDefaut(p.notes));
+}
+
+// --- Une pièce à plusieurs voix -----------------------------------------------------------
+const polyphonie = shallowRef<Polyphonie | null>(null);
+const voixChoisie = ref(0);
+/** les voix jouées par « Écouter » (et par « Chanter avec », sauf la sienne) */
+const entendues = ref<boolean[]>([]);
+const facteurTempo = ref(1);
+/** la voix dont le suiveur a les notes */
+let voixLue = -1;
+
+function luePolyphonie(p: Polyphonie) {
+  polyphonie.value = p;
+  entendues.value = p.voix.map(() => true);
+  const v = voixDemandee ?? reglages.voixPour(choix.value!.cle, voixProche(p));
+  voixDemandee = null;
+  voixChoisie.value = voixLue = Math.min(Math.max(v, 0), p.voix.length - 1);
+  // Écrit à la vraie hauteur : le do est do3 (MIDI 60), sauf transposition.
+  lueNotes(notesDuSuiveur(p.voix[voixChoisie.value]), 60);
+}
+
+watch(voixChoisie, (v) => {
+  const p = polyphonie.value;
+  if (!p || !choix.value || v === voixLue) return;
+  voixLue = v;
+  reglages.garderVoix(choix.value.cle, v);
+  relire(notesDuSuiveur(p.voix[v]));
+});
+
+/** Les notes d'une autre voix, au même do. */
+function relire(n: NoteChant[]) {
+  notes.value = n;
+  suiveur.value = new Suiveur(n, doMidi.value);
+  traces.value = suiveur.value.pas.map(() => []);
+  fausses.value = new Set();
+  derives.value = [];
+  arreterLecture();
+  majEtat();
+}
+
+function lueNotes(n: NoteChant[], doDefaut: number) {
   message.value = "";
-  notes.value = p.notes;
-  doMidi.value = doDemande ?? reglages.doPour(choix.value!.cle, doParDefaut(p.notes));
+  notes.value = n;
+  doMidi.value = doDemande ?? reglages.doPour(choix.value!.cle, doDefaut);
   doDemande = null;
-  suiveur.value = new Suiveur(p.notes, doMidi.value);
+  suiveur.value = new Suiveur(n, doMidi.value);
   traces.value = suiveur.value.pas.map(() => []);
   fausses.value = new Set();
   derives.value = [];
@@ -240,6 +294,7 @@ function recevoir(m: Mesure) {
   derniere.value = m;
   enPause.value = micro?.enPause() ?? false;
   const s = suiveur.value;
+  if (lecture && modeLecture === "avec") return enregistrerAvec(m);
   if (!s || lecture) return;
   if (calage.value) {
     const chantee = calageur.recevoir(m);
@@ -268,8 +323,22 @@ function caler() {
   calage.value = !calage.value;
 }
 
+/** « Chanter avec » : la mesure va sur la note de sa voix qui sonne à ce moment. */
+function enregistrerAvec(m: Mesure) {
+  const p = polyphonie.value;
+  const s = suiveur.value;
+  if (!p || !s || !enCours) return;
+  const i = noteA(p.voix[voixChoisie.value], enCours.temps(m.temps - REGLAGES.latence));
+  const k = i < 0 ? -1 : s.pas.findIndex((x) => x.premiere <= i && i <= x.derniere);
+  const trace = traces.value[k];
+  if (trace && (trace.length || m.midi !== null)) trace.push(m.midi);
+}
+
 // --- Le son -----------------------------------------------------------------------
 let lecture: (() => void) | null = null;
+/** la lecture en mesure d'une pièce à plusieurs voix, et ce qu'on en fait */
+let enCours: Lecture | null = null;
+let modeLecture: "ecoute" | "avec" | null = null;
 const enLecture = ref(false);
 let arretBourdon: (() => void) | null = null;
 const bourdonTenu = ref(false);
@@ -295,6 +364,49 @@ async function ecouter() {
   });
 }
 
+/** Une pièce à plusieurs voix, en mesure, depuis la note du curseur de sa voix. `avec` :
+ * sans sa voix, et le micro enregistre (« Chanter avec »). */
+async function ecouterVoix(avec: boolean) {
+  if (lecture) return arreterLecture();
+  const p = polyphonie.value;
+  const s = suiveur.value;
+  if (!p || !s) return;
+  const sienne = p.voix[voixChoisie.value];
+  const depart = s.noteCourante;
+  const depuis = sienne.notes[depart]?.debut ?? 0;
+  const transposition = doMidi.value - 60;
+  const jouees = p.voix
+    .filter((_, i) => entendues.value[i] && !(avec && i === voixChoisie.value))
+    .map((v) => v.notes.map((n) => ({ midi: n.midi + transposition, debut: n.debut, duree: n.duree })));
+  if (avec) {
+    effacer(s.k);
+    fausses.value = new Set();
+    derives.value = [];
+  }
+  modeLecture = avec ? "avec" : "ecoute";
+  enLecture.value = true;
+  enCours = await jouerVoix(jouees, depuis, p.tempo * facteurTempo.value, (t) => {
+    const i = noteA(sienne, t);
+    if (i >= 0 && courantes.value[0] !== i) courantes.value = [i];
+  }, () => {
+    const mode = modeLecture;
+    lecture = null;
+    enCours = null;
+    modeLecture = null;
+    enLecture.value = false;
+    if (suiveur.value !== s) return; // une autre pièce, ou une autre voix, entre-temps
+    if (mode !== "avec") return allerA(depart);
+    // Le bilan de ce qui a été chanté, note par note.
+    const b = bilanDesTraces(s.pas, traces.value, doMidi.value);
+    s.etat = "fini";
+    etat.value = "fini";
+    courantes.value = [];
+    fausses.value = b.fausses;
+    derives.value = b.derives;
+  });
+  lecture = enCours.arreter;
+}
+
 async function basculerBourdon() {
   if (arretBourdon) {
     arretBourdon();
@@ -316,6 +428,10 @@ function ton() {
 const consigne = computed(() => {
   if (!choix.value) return "Choisissez une pièce.";
   if (!notes.value.length) return "";
+  if (enLecture.value && polyphonie.value) {
+    const nom = polyphonie.value.voix[voixChoisie.value].nom;
+    return modeLecture === "avec" ? `Chantez la voix ${nom}, avec les autres.` : "Écoutez.";
+  }
   if (!microOuvert.value) return "Micro coupé.";
   if (calage.value) return "Chantez la note du curseur et tenez-la : le do se cale sur votre voix.";
   if (etat.value === "fini") return "Fini.";
@@ -366,10 +482,10 @@ onBeforeUnmount(() => {
             v-for="p in programme.pieces"
             :key="p.nom"
             :value="p.nom"
-            :disabled="!p.gabc"
+            :disabled="!p.gabc && !p.musicxml"
             :selected="choix?.cle === `programme:${programme.nom}/${p.nom}`"
           >
-            {{ p.nom }} · {{ p.incipit }}{{ p.gabc ? "" : " (pas notée)" }}
+            {{ p.nom }} · {{ p.titre || p.incipit }}{{ p.musicxml ? " (à plusieurs voix)" : p.gabc ? "" : " (pas notée)" }}
           </option>
         </select>
       </label>
@@ -407,7 +523,12 @@ onBeforeUnmount(() => {
         <button type="button" :aria-pressed="microOuvert" @click="basculerMicro">Micro</button>
         <button type="button" :disabled="cible === null" @click="ton">Donner le ton</button>
         <button type="button" :disabled="!microOuvert" :aria-pressed="calage" @click="caler">Caler sur ma voix</button>
-        <button type="button" :aria-pressed="enLecture" @click="ecouter">{{ enLecture ? "Arrêter" : "Écouter" }}</button>
+        <button type="button" :aria-pressed="enLecture" @click="polyphonie ? ecouterVoix(false) : ecouter()">
+          {{ enLecture ? "Arrêter" : "Écouter" }}
+        </button>
+        <button v-if="polyphonie" type="button" :disabled="enLecture || !microOuvert" title="les autres voix jouent ; le micro vous suit en mesure" @click="ecouterVoix(true)">
+          Chanter avec
+        </button>
         <button type="button" :aria-pressed="bourdonTenu" title="la finale tenue ; au casque" @click="basculerBourdon">
           Bourdon
         </button>
@@ -415,10 +536,41 @@ onBeforeUnmount(() => {
         <label class="machine"><input v-model="reglages.voixGrave" type="checkbox" /> voix grave</label>
       </section>
 
+      <section v-if="polyphonie" class="commandes voix-pieces">
+        <label class="machine">
+          votre voix
+          <select v-model.number="voixChoisie" :disabled="enLecture">
+            <option v-for="(v, i) in polyphonie.voix" :key="i" :value="i">{{ v.nom }}</option>
+          </select>
+        </label>
+        <span class="machine">entendre</span>
+        <label v-for="(v, i) in polyphonie.voix" :key="i" class="machine">
+          <input v-model="entendues[i]" type="checkbox" :disabled="enLecture" /> {{ v.nom }}
+        </label>
+        <label class="machine">
+          tempo
+          <input v-model.number="facteurTempo" type="range" min="0.4" max="1.3" step="0.05" :disabled="enLecture" />
+          ♩ = {{ Math.round(polyphonie.tempo * facteurTempo) }}
+        </label>
+      </section>
+
       <p class="etat">{{ consigne }}</p>
       <Accordeur v-if="microOuvert" :mesure="derniere" :cible="cible" :micro="nomMicro" :en-pause="enPause" />
 
+      <VuePolyphonie
+        v-if="choix.musicxml"
+        :musicxml="choix.musicxml"
+        :voix-choisie="voixChoisie"
+        :notes="notes"
+        :courantes="courantes"
+        :fausses="fausses"
+        :voix="voixChantee"
+        @lue="luePolyphonie"
+        @choisir="allerA"
+        @erreur="(m) => (message = m)"
+      />
       <VuePartition
+        v-else
         :gabc="choix.gabc"
         :courantes="courantes"
         :fausses="fausses"

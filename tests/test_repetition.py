@@ -1,6 +1,7 @@
 """La répétition de bout en bout : la page construite (`web/dist`), servie par `serveur.py`,
-dans Chrome sans écran, avec un faux micro qui « chante » une antienne. Le curseur doit
-aller jusqu'à la dernière note.
+dans Chrome sans écran, avec un faux micro qui « chante » une antienne, ou la basse d'un
+Kyrie à deux voix (MusicXML, gravé par Verovio). Le curseur doit aller jusqu'à la dernière
+note.
 
 Le faux micro de Chrome lit un fichier WAV (`--use-file-for-fake-audio-capture`), fait
 ici depuis les notes de la pièce. On lit l'état de la page par le protocole de Chrome
@@ -38,16 +39,19 @@ ECCE = [(-3, 1), (-3, 1), (-5, 1), (-5, 1), (-8, 1), (-7, 1), (-5, 1), (-8, 1), 
         (-8, 1), (-7, 1), (-3, 1), (-5, 1), (-8, 1), (-7, 1), (-5, 1), (-7, 1), (-8, 1), (-10, 2),
         (-10, 2)]
 DO = 55            # sol2 : le do de la clé pour ce chanteur
+# La basse du Kyrie à deux voix (`donnees/kyrie_deux_voix.musicxml`), depuis do3 (MIDI 60) :
+# ré mi fa | la do♯ mi ré (le do♯ vient d'un « # » de l'éditeur).
+KYRIE_BASSE = [(-10, 1), (-8, 1), (-7, 1), (-3, 1), (-11, 1), (-8, 1), (-10, 2)]
 PULSATION = 0.3    # s
 
 
-def wav(chemin, notes, ecart_cents=0.0, continu=0.0) -> None:
+def wav(chemin, notes, ecart_cents=0.0, continu=0.0, do=DO) -> None:
     """Une voix simple (fondamentale et harmoniques) qui chante `notes`, après un silence.
     `continu` : un décalage continu, comme le micro interne du ThinkPad (+0,2 en mono)."""
     echantillons = [continu] * int(1.5 * FE)
     phase = 0.0
     for hauteur, duree in notes:
-        f = 440 * 2 ** ((DO + hauteur + ecart_cents / 100 - 69) / 12)
+        f = 440 * 2 ** ((do + hauteur + ecart_cents / 100 - 69) / 12)
         for _ in range(int(duree * PULSATION * FE)):
             phase += 2 * math.pi * f / FE
             echantillons.append(continu + 0.25 * (math.sin(phase) + 0.5 * math.sin(2 * phase) + 0.3 * math.sin(3 * phase)))
@@ -119,9 +123,11 @@ def adresse(tmp_path):
     programmes = tmp_path / "programmes"
     programmes.mkdir()
     shutil.copy(DONNEES / "antienne_ecce_quam_bonum.gabc", programmes)
+    shutil.copy(DONNEES / "kyrie_deux_voix.musicxml", programmes)
     (programmes / "essai.yaml").write_text(
         "titre: Essai\ndate: 2026-11-26\npieces:\n"
-        "  - antienne: {gabc_fichier: antienne_ecce_quam_bonum.gabc}\n", encoding="utf-8")
+        "  - antienne: {gabc_fichier: antienne_ecce_quam_bonum.gabc}\n"
+        "  - autre: {titre: Kyrie, musicxml_fichier: kyrie_deux_voix.musicxml}\n", encoding="utf-8")
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
@@ -136,21 +142,24 @@ def adresse(tmp_path):
     fil.join(5)
 
 
-def chanter(adresse, tmp_path, ecart_cents: float, continu=0.0) -> dict:
-    """Le faux micro chante l'antienne ; l'état de la page à la fin (ou après 30 s)."""
+def chanter(adresse, tmp_path, ecart_cents: float, continu=0.0, notes=ECCE, do=DO,
+            piece="antienne", voix=None) -> dict:
+    """Le faux micro chante `notes` ; l'état de la page à la fin (ou après 30 s)."""
     fichier = tmp_path / "voix.wav"
-    wav(fichier, ECCE, ecart_cents, continu)
-    chrome = Chrome(f"{adresse}/repetition?programme=essai&piece=antienne&do={DO}&micro=1",
+    wav(fichier, notes, ecart_cents, continu, do)
+    avec_voix = f"&voix={voix}" if voix is not None else ""
+    chrome = Chrome(f"{adresse}/repetition?programme=essai&piece={piece}&do={do}{avec_voix}&micro=1",
                     f"--user-data-dir={tmp_path / 'profil'}", "--use-fake-ui-for-media-stream",
                     "--use-fake-device-for-media-stream", f"--use-file-for-fake-audio-capture={fichier}",
                     "--autoplay-policy=no-user-gesture-required")
     try:
         # L'état de la page, et les pixels peints par la voix sur la portée.
         lire = ("(() => { const m = document.querySelector('main.repetition');"
-                " const t = document.querySelector('.partition canvas.voix');"
+                " const t = document.querySelector('canvas.voix');"
+                " const g = document.querySelector('.polyphonie');"
                 " const d = t && t.width ? t.getContext('2d').getImageData(0, 0, t.width, t.height).data : [];"
                 " let trait = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) trait++;"
-                " return m && {...m.dataset, texte: m.innerText, trait}; })()")
+                " return m && {...m.dataset, texte: m.innerText, trait, gravees: g && g.dataset.gravees}; })()")
         fin = time.monotonic() + 30
         etat = None
         while time.monotonic() < fin:
@@ -177,3 +186,13 @@ def test_une_voix_trop_basse_sort_au_minium(avec_chrome, adresse, tmp_path):
     etat = chanter(adresse, tmp_path, -35)
     assert etat.get("etat") == "fini", etat
     assert "21 notes à plus de 25 cents" in etat["texte"], etat["texte"]
+
+
+def test_une_voix_d_une_piece_a_plusieurs_voix(avec_chrome, adresse, tmp_path):
+    """Le Kyrie à deux voix, gravé par Verovio : le chanteur prend la basse (`voix=1`)."""
+    etat = chanter(adresse, tmp_path, 0, notes=KYRIE_BASSE, do=60, piece="autre", voix=1)
+    assert etat.get("gravees") == "7", etat           # chaque note de la basse a sa tête gravée
+    assert etat.get("notes") == "7", etat
+    assert etat.get("etat") == "fini", etat
+    assert "0 note à plus de 25 cents" in etat["texte"], etat["texte"]
+    assert etat["trait"] > 300, "la voix n'est pas dessinée sur la portée de Verovio"

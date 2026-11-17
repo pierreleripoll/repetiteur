@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Mesure } from "../audio/hauteur";
 import { REGLAGES } from "../reglages";
 import type { NoteChant } from "./partition";
-import { Calage, Suiveur, decouper } from "./suiveur";
+import { bilanDesTraces, Calage, Suiveur, decouper } from "./suiveur";
 
 const DO = 55; // sol2 : le do de la clé, pour le chanteur
 
@@ -141,5 +141,20 @@ describe("calage", () => {
     const ch = new Chanteur();
     for (let k = 0; k < 30; k++) ch.chante(52 + (k % 2) * 0.5, 20);
     expect(ch.mesures.map((m) => c.recevoir(m)).filter((x) => x !== null)).toEqual([]);
+  });
+});
+
+describe("bilan d'un chant en mesure (« chanter avec »)", () => {
+  it("les notes fausses et l'écart de chaque phrase, depuis les traces", () => {
+    const pas = decouper(piece([[0, 0], [2, 0], [4, 1], [5, 1]]));
+    const traces = [
+      [DO, DO + 0.05, null, DO - 0.05],           // juste
+      [DO + 2 - 0.4, DO + 2 - 0.35, DO + 2 - 0.4], // 40 cents trop bas : fausse
+      [],                                          // pas chantée
+      [DO + 5 + 3, DO + 5 + 0.1, DO + 5 + 0.1],    // une mesure à côté (3 demi-tons) ne compte pas
+    ];
+    const b = bilanDesTraces(pas, traces, DO);
+    expect([...b.fausses]).toEqual([1]);
+    expect(b.derives).toEqual([{ phrase: 0, ecart: expect.closeTo(-20, 0) }, { phrase: 1, ecart: expect.closeTo(10, 0) }]);
   });
 });

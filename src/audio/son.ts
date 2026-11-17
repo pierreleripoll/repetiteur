@@ -8,8 +8,15 @@ const HARMONIQUES = [0, 1, 0.45, 0.25, 0.12, 0.06];
 const ATTAQUE = 0.03;
 const CHUTE = 0.08;
 
+const timbres = new WeakMap<AudioContext, PeriodicWave>();
+
 function timbre(ctx: AudioContext): PeriodicWave {
-  return ctx.createPeriodicWave(new Float32Array(HARMONIQUES), new Float32Array(HARMONIQUES.length));
+  let t = timbres.get(ctx);
+  if (!t) {
+    t = ctx.createPeriodicWave(new Float32Array(HARMONIQUES), new Float32Array(HARMONIQUES.length));
+    timbres.set(ctx, t);
+  }
+  return t;
 }
 
 /** Une note de `debut` à `debut + duree` (s, horloge du contexte). Rend de quoi l'arrêter. */
@@ -62,6 +69,60 @@ export async function jouer(
     arrets.forEach((a) => a());
     minuteries.forEach(clearTimeout);
     finie();
+  };
+}
+
+export interface Lecture {
+  arreter(): void;
+  /** le temps de la pièce (en noires) à l'instant `ms` de l'horloge du contexte */
+  temps(ms: number): number;
+}
+
+/** Joue des voix ensemble, en mesure, depuis le temps `depuis` (en noires). `surTemps(t)`
+ * à chaque image ; `finie()` à la fin, ou à l'arrêt. */
+export async function jouerVoix(
+  voix: { midi: number; debut: number; duree: number }[][],
+  depuis: number,
+  noiresParMinute: number,
+  surTemps: (t: number) => void,
+  finie: () => void,
+): Promise<Lecture> {
+  const ctx = await audio();
+  const noire = 60 / noiresParMinute;
+  const t0 = ctx.currentTime + 0.15;
+  const force = 0.22 / Math.sqrt(Math.max(1, voix.length));
+  const arrets: (() => void)[] = [];
+  let fin = depuis;
+  for (const v of voix) {
+    for (const n of v) {
+      if (n.debut + n.duree <= depuis) continue;
+      const debut = Math.max(n.debut, depuis);
+      arrets.push(note(ctx, n.midi, t0 + (debut - depuis) * noire, (n.debut + n.duree - debut) * noire * 0.97, force));
+      fin = Math.max(fin, n.debut + n.duree);
+    }
+  }
+  const temps = (ms: number) => depuis + (ms / 1000 - t0) / noire;
+  let image = 0;
+  let terminee = false;
+  const boucle = () => {
+    surTemps(temps(ctx.currentTime * 1000));
+    image = requestAnimationFrame(boucle);
+  };
+  image = requestAnimationFrame(boucle);
+  const terminer = () => {
+    if (terminee) return;
+    terminee = true;
+    cancelAnimationFrame(image);
+    clearTimeout(minuterie);
+    finie();
+  };
+  const minuterie = setTimeout(terminer, ((fin - depuis) * noire + (t0 - ctx.currentTime) + 0.2) * 1000);
+  return {
+    arreter() {
+      arrets.forEach((a) => a());
+      terminer();
+    },
+    temps,
   };
 }
 

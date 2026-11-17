@@ -171,6 +171,28 @@ export class Suiveur {
   }
 }
 
+/** Le bilan d'un chant en mesure (« chanter avec ») : ce qui a été chanté sur chaque pas
+ * (`traces`, en MIDI) comparé à sa note. Les notes fausses, et l'écart de chaque phrase. */
+export function bilanDesTraces(
+  pas: Pas[],
+  traces: (number | null)[][],
+  doMidi: number,
+  r: Reglages = REGLAGES,
+): { fausses: Set<number>; derives: { phrase: number; ecart: number | null }[] } {
+  const fausses = new Set<number>();
+  const parPhrase = new Map<number, number[]>();
+  pas.forEach((p, k) => {
+    const ecarts = (traces[k] ?? [])
+      .filter((m): m is number => m !== null)
+      .map((m) => (m - doMidi - p.hauteur) * 100)
+      .filter((e) => Math.abs(e) <= r.toleranceMesure);
+    parPhrase.set(p.phrase, [...(parPhrase.get(p.phrase) ?? []), ...ecarts]);
+    const e = mediane(ecarts);
+    if (e !== null && Math.abs(e) > r.horsJustesse) for (let i = p.premiere; i <= p.derniere; i++) fausses.add(i);
+  });
+  return { fausses, derives: [...parPhrase].map(([phrase, e]) => ({ phrase, ecart: mediane(e) })) };
+}
+
 /** « Caler sur ma voix » : la note que le chanteur tient, stable, `calageDuree` ms. */
 export class Calage {
   private suite: Mesure[] = [];
