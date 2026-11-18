@@ -71,7 +71,8 @@ const juste = computed(() => ecart.value !== null && Math.abs(ecart.value) <= RE
     <span class="jauge" title="la netteté de la note (clarté) ; le trait : le seuil">
       netteté
       <span class="barre">
-        <span class="plein" :class="{ bas: clarte < REGLAGES.clarteMin }" :style="{ width: pourcent(clarte) }"></span>
+        <!-- Une voix déjà suivie compte encore sous le seuil (`clarteGarde`) : pas en rouge. -->
+        <span class="plein" :class="{ bas: clarte < REGLAGES.clarteMin && !compte }" :style="{ width: pourcent(clarte) }"></span>
         <span class="seuil" :style="{ left: pourcent(REGLAGES.clarteMin) }"></span>
       </span>
       <span class="chiffre">{{ clarte.toFixed(2) }}</span>

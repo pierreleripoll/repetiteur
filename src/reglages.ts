@@ -10,13 +10,19 @@ export const REGLAGES = {
   clarteMin: 0.9,
   /** … et si le volume (RMS du signal, 0 à 1) le dépasse (0,003 : −50 dB). */
   volumeMin: 0.003,
+  /** Hauteur : une voix déjà suivie compte encore jusqu'à cette clarté, si elle reste à
+   * moins de `sautGarde` demi-tons de la mesure d'avant (la réverbération, le bruit).
+   * Le banc (`banc/resultats.md`) : 6 à 11 points de trames justes en plus. */
+  clarteGarde: 0.5,
+  sautGarde: 1,
   /** Hauteur : en dessous de cette clarté, on n'affiche même pas la note captée (du bruit). */
   clarteVue: 0.5,
   /** Hauteur : les fréquences possibles d'une voix (Hz). */
   frequenceMin: 60,
   frequenceMax: 1100,
-  /** Hauteur : médiane sur ce nombre de mesures (contre les sauts d'octave). */
-  mediane: 5,
+  /** Hauteur : médiane sur ce nombre de mesures (contre les sauts d'octave). 3 plutôt que
+   * 5 : 8 ms de retard en moins, et le banc ne voit pas plus d'erreurs. */
+  mediane: 3,
   /** Suiveur : la voix est « sur la note » à moins de `tolerance` cents… */
   tolerance: 50,
   /** … et le curseur passe à la note suivante après `tenue` ms sur elle. */

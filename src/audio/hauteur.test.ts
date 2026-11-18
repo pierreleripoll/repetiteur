@@ -17,6 +17,15 @@ function son(f: number, harmoniques = [1, 0.6, 0.4, 0.25], debut = 0, amplitude 
   return t;
 }
 
+/** Du bruit blanc d'amplitude `a`, toujours le même. */
+function bruit(a: number): Float32Array {
+  let graine = 7;
+  return new Float32Array(TAILLE).map(() => {
+    graine = (graine * 16807) % 2147483647;
+    return a * (graine / 2147483647 - 0.5);
+  });
+}
+
 describe("hauteur", () => {
   it("trouve 110, 220 et 440 Hz à 5 cents près", () => {
     for (const f of [110, 220, 440]) {
@@ -37,12 +46,7 @@ describe("hauteur", () => {
   it("ne compte ni le silence ni le bruit", () => {
     const d = new Detecteur(TAILLE, FE);
     expect(d.mesurer(new Float32Array(TAILLE), 0).midi).toBeNull();
-    let graine = 1;
-    const bruit = new Float32Array(TAILLE).map(() => {
-      graine = (graine * 16807) % 2147483647;
-      return (graine / 2147483647 - 0.5) * 0.5;
-    });
-    expect(d.mesurer(bruit, 20).midi).toBeNull();
+    expect(d.mesurer(bruit(0.5), 20).midi).toBeNull();
   });
 
   it("une voix trop faible ne compte pas, mais on voit la note captée", () => {
@@ -67,5 +71,22 @@ describe("hauteur", () => {
     for (let k = 0; k < 4; k++) d.mesurer(son(220, undefined, k * TAILLE), k * 20);
     const m = d.mesurer(son(440, [1]), 80);
     expect(Math.round(m.midi!)).toBe(57);   // la2, pas la3
+  });
+
+  it("une voix déjà suivie compte encore, moins nette, tant qu'elle ne saute pas", () => {
+    const b = bruit(0.2);
+    const sale = son(220, undefined, 0, 0.1).map((x, i) => x + b[i]); // clarté 0,7
+    // Seule, elle ne compte pas…
+    expect(new Detecteur(TAILLE, FE).mesurer(sale, 0).midi).toBeNull();
+    // … après une mesure nette de la même note, si.
+    const d = new Detecteur(TAILLE, FE);
+    d.mesurer(son(220), 0);
+    const m = d.mesurer(sale, 20);
+    expect(m.clarte).toBeLessThan(0.9);
+    expect(Math.round(m.midi!)).toBe(57);
+    // Un saut d'un ton, moins net : non.
+    const d2 = new Detecteur(TAILLE, FE);
+    d2.mesurer(son(196), 0);
+    expect(d2.mesurer(sale, 20).midi).toBeNull();
   });
 });

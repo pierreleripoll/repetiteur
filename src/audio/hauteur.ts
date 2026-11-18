@@ -2,6 +2,10 @@
 // fréquence et sa clarté (0 à 1). Une médiane sur les dernières mesures enlève les sauts
 // d'octave isolés.
 //
+// Une mesure compte si elle est nette (`clarteMin`). Une voix déjà suivie compte encore,
+// moins nette (`clarteGarde`), tant qu'elle ne saute pas : dans une église ou du bruit, la
+// clarté d'une note tenue tombe souvent sous le seuil, et la note se perdait.
+//
 // On retire d'abord la moyenne de la fenêtre. Le micro interne du ThinkPad a un fort
 // décalage continu (+0,09 et +0,33 sur ses deux canaux) : avec lui, le volume ne dit rien
 // (−14 dB dans le silence) et McLeod ne trouve pas la période. D'habitude, le filtre
@@ -38,6 +42,8 @@ function mediane(valeurs: number[]): number {
 export class Detecteur {
   private detecteur: PitchDetector<Float32Array>;
   private recentes: number[] = [];
+  /** la dernière mesure qui a compté (MIDI brut), null après un silence */
+  private derniere: number | null = null;
   private travail: Float32Array;
 
   constructor(
@@ -60,11 +66,16 @@ export class Detecteur {
     const [frequence, clarte] = this.detecteur.findPitch(t, this.frequenceEchantillons);
     const voix = frequence >= r.frequenceMin && frequence <= r.frequenceMax;
     const brute = voix && v > 0 && clarte >= r.clarteVue ? midiDe(frequence) : null;
-    if (!voix || v < r.volumeMin || clarte < r.clarteMin) {
+    const midi = midiDe(frequence);
+    const nette = clarte >= r.clarteMin;
+    const suite = this.derniere !== null && clarte >= r.clarteGarde && Math.abs(midi - this.derniere) < r.sautGarde;
+    if (!voix || v < r.volumeMin || !(nette || suite)) {
       this.recentes = [];
+      this.derniere = null;
       return { temps, midi: null, clarte, volume: v, brute };
     }
-    this.recentes.push(midiDe(frequence));
+    this.derniere = midi;
+    this.recentes.push(midi);
     if (this.recentes.length > r.mediane) this.recentes.shift();
     return { temps, midi: mediane(this.recentes), clarte, volume: v, brute };
   }
