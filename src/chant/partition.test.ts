@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import * as Ex from "exsurge-ts";
 import { graver, idNote, lire, separer } from "./partition";
 
-const DONNEES = resolve(__dirname, "../../../tests/donnees");
+const DONNEES = resolve(__dirname, "../../tests/donnees");
 const donnees = (nom: string) => readFileSync(resolve(DONNEES, nom), "utf8");
 
 function contexte() {

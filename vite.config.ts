@@ -1,5 +1,5 @@
-// Vite pour l'app web de Scriptorium (phase 2). Le serveur Python (`uv run scriptorium
-// serveur`) donne /api ; ici, la page. Les ports viennent de l'environnement.
+// Vite pour le répétiteur. Le serveur Python de scriptorium (`uv run scriptorium serveur`,
+// dans `~/code/scriptorium`) donne /api ; ici, la page. Les ports viennent de l'environnement.
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import vue from "@vitejs/plugin-vue";

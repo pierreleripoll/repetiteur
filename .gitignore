@@ -1,0 +1,24 @@
+# Les paquets (pnpm) et la page construite
+node_modules/
+dist/
+
+# Le banc de la hauteur : vocadito et ses conditions (800 Mo). Barre en tête :
+# `tests/donnees/` doit rester suivi.
+/donnees/
+
+# Python (le test de bout en bout, le banc)
+__pycache__/
+*.py[oc]
+.venv
+.pytest_cache/
+
+# wtx: per-worktree files, local to one checkout
+.env.worktree
+.wt-logs/
+PROMPT.md
+PROMPT.sent.md
+.claude/settings.local.json
+.claude/agents/Explore.md
+.claude/rules/wtx.md
+.claude/worktrees/
+opencode.json

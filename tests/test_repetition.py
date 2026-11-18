@@ -1,41 +1,43 @@
-"""La répétition de bout en bout : la page construite (`web/dist`), servie par `serveur.py`,
-dans Chrome sans écran, avec un faux micro qui « chante » une antienne, ou la basse d'un
-Kyrie à deux voix (MusicXML, gravé par Verovio). Le curseur doit aller jusqu'à la dernière
-note. La hauteur est mesurée par SwiftF0 (onnxruntime-web dans un worker), ou par pitchy
-si on le demande (`?detecteur=pitchy`).
+"""La répétition de bout en bout : la page construite (`dist`) dans Chrome sans écran, avec
+un faux micro qui « chante » une antienne, ou la basse d'un Kyrie à deux voix (MusicXML,
+gravé par Verovio). Le curseur doit aller jusqu'à la dernière note. La hauteur est mesurée
+par SwiftF0 (onnxruntime-web dans un worker), ou par pitchy si on le demande
+(`?detecteur=pitchy`).
+
+    pnpm build && pnpm e2e        # uv run --with pytest pytest tests
+
+Le serveur est faux : il rend `dist` et, pour `/api/programmes/essai`, le fichier
+`donnees/essai.json`. C'est ce que `uv run scriptorium serveur` (dépôt scriptorium) donne
+pour un programme libre de deux pièces, `donnees/antienne_ecce_quam_bonum.gabc` et
+`donnees/kyrie_deux_voix.musicxml` : si le serveur change ce qu'il rend, refaire ce fichier.
 
 Le faux micro de Chrome lit un fichier WAV (`--use-file-for-fake-audio-capture`), fait
 ici depuis les notes de la pièce. On lit l'état de la page par le protocole de Chrome
 (DevTools), sur un tube (`--remote-debugging-pipe`) : pas besoin de bibliothèque.
 
-Lent : demande Chrome et `web/dist` (`pnpm --dir web build`).
+Sauté sans Chrome ou sans `dist`.
 """
 import json
 import math
 import os
 import shutil
-import socket
 import struct
 import subprocess
 import threading
 import time
 import wave
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import pytest
-import uvicorn
 
-from scriptorium.serveur import creer_app
-
-from conftest import DONNEES, RACINE
-
-pytestmark = pytest.mark.lent
-
-WEB = RACINE / "web" / "dist"
+DONNEES = Path(__file__).parent / "donnees"
+WEB = Path(__file__).parent.parent / "dist"
 FE = 48000
 
 # Ecce quam bonum (antienne 1.a, `donnees/antienne_ecce_quam_bonum.gabc`), en clé d'ut 4e
 # ligne : demi-tons depuis le do (j), et durée (2 : note pointée). Les mêmes que lit
-# exsurge (`web/src/chant/partition.test.ts`).
+# exsurge (`src/chant/partition.test.ts`).
 ECCE = [(-3, 1), (-3, 1), (-5, 1), (-5, 1), (-8, 1), (-7, 1), (-5, 1), (-8, 1), (-7, 1), (-10, 2),
         (-8, 1), (-7, 1), (-3, 1), (-5, 1), (-8, 1), (-7, 1), (-5, 1), (-7, 1), (-8, 1), (-10, 2),
         (-10, 2)]
@@ -116,31 +118,52 @@ class Chrome:
         os.close(self.lire)
 
 
+class FauxServeur(SimpleHTTPRequestHandler):
+    """La page de `dist` et un programme, comme le serveur de scriptorium. La page a ses
+    adresses (`/repetition`) : une adresse inconnue hors de `/api` rend `index.html`."""
+
+    def do_GET(self):
+        chemin = self.path.split("?")[0]
+        if chemin.startswith("/api/"):
+            if chemin == "/api/programmes":
+                self.json(200, [{"nom": "essai", "titre": "Essai"}])
+            elif chemin == "/api/programmes/essai":
+                self.json(200, json.loads((DONNEES / "essai.json").read_text(encoding="utf-8")))
+            else:
+                self.json(404, {"detail": f"{chemin} n'existe pas."})
+            return
+        if not (WEB / chemin.lstrip("/")).is_file():
+            self.path = "/index.html"
+        super().do_GET()
+
+    def json(self, code: int, donnees) -> None:
+        corps = json.dumps(donnees).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(corps)))
+        self.end_headers()
+        self.wfile.write(corps)
+
+    def log_message(self, *args) -> None:
+        pass
+
+
+@pytest.fixture(scope="session")
+def avec_chrome():
+    if not shutil.which("google-chrome"):
+        pytest.skip("google-chrome manque")
+
+
 @pytest.fixture
-def adresse(tmp_path):
-    """Le serveur, sur un port libre, avec un programme d'une antienne."""
+def adresse():
+    """Le faux serveur, sur un port libre."""
     if not (WEB / "index.html").exists():
-        pytest.skip("web/dist manque : pnpm --dir web build")
-    programmes = tmp_path / "programmes"
-    programmes.mkdir()
-    shutil.copy(DONNEES / "antienne_ecce_quam_bonum.gabc", programmes)
-    shutil.copy(DONNEES / "kyrie_deux_voix.musicxml", programmes)
-    (programmes / "essai.yaml").write_text(
-        "titre: Essai\ndate: 2026-11-26\npieces:\n"
-        "  - antienne: {gabc_fichier: antienne_ecce_quam_bonum.gabc}\n"
-        "  - autre: {titre: Kyrie, musicxml_fichier: kyrie_deux_voix.musicxml}\n", encoding="utf-8")
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
-    serveur = uvicorn.Server(uvicorn.Config(creer_app(programmes, tmp_path / "base.db", WEB),
-                                            host="127.0.0.1", port=port, log_level="warning"))
-    fil = threading.Thread(target=serveur.run, daemon=True)
-    fil.start()
-    while not serveur.started:
-        time.sleep(0.05)
-    yield f"http://127.0.0.1:{port}"
-    serveur.should_exit = True
-    fil.join(5)
+        pytest.skip("dist manque : pnpm build")
+    serveur = ThreadingHTTPServer(("127.0.0.1", 0), lambda *a: FauxServeur(*a, directory=str(WEB)))
+    threading.Thread(target=serveur.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{serveur.server_address[1]}"
+    serveur.shutdown()
+    serveur.server_close()
 
 
 def chanter(adresse, tmp_path, ecart_cents: float, continu=0.0, notes=ECCE, do=DO,

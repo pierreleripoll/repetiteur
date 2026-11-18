@@ -15,14 +15,14 @@
 
 Des voix chantées dont on connaît la hauteur (vocadito : 40 extraits, 13 min, CC BY 4.0,
 https://zenodo.org/records/5578807), salies comme chez nous : bruit, pièce, église, micro
-de portable. Les détecteurs de l'app (pitchy, dans `web/banc/`) et des modèles neuronaux
-(SwiftF0, PESTO) ou classiques (pYIN), en direct ou hors ligne.
+de portable. Les détecteurs de l'app (`banc/detecteurs.banc.test.ts`) et des modèles
+neuronaux (SwiftF0, PESTO) ou classiques (pYIN), en direct ou hors ligne.
 
     uv run --script banc/hauteur.py preparer     # vocadito → donnees/banc/conditions (800 Mo)
     uv run --script banc/hauteur.py python       # pYIN, SwiftF0, PESTO (25 min, 3 cœurs)
-    BANC_DOSSIER=… pnpm --dir web exec vitest run banc   # pitchy et swiftf0-web, lancé par `tout`
+    BANC_DOSSIER=… pnpm exec vitest run banc   # pitchy et swiftf0-web, lancé par `tout`
     uv run --script banc/hauteur.py bilan        # banc/resultats.md
-    uv run --script banc/hauteur.py reference    # web/src/audio/swiftf0.reference.json
+    uv run --script banc/hauteur.py reference    # src/audio/swiftf0.reference.json
     uv run --script banc/hauteur.py tout
 
 vocadito doit être dézippé dans `donnees/banc/vocadito/` (Audio/, Annotations/).
@@ -184,7 +184,7 @@ PLANCHER_SWIFT = 1e-4
 def normer(bout: np.ndarray) -> np.ndarray:
     """La fenêtre sans sa moyenne (le décalage continu du micro du ThinkPad) et au niveau
     `NIVEAU_SWIFT` : la confiance de SwiftF0 tombe avec le niveau (sur vocadito, de 97 à 63 %
-    de trames justes entre −26 et −48 dB). Comme `normer` dans `web/src/audio/swiftf0.ts`."""
+    de trames justes entre −26 et −48 dB). Comme `normer` dans `src/audio/swiftf0.ts`."""
     b = bout.astype(np.float64)
     b -= b.mean()
     return (b * (db(NIVEAU_SWIFT) / max(rms(b), PLANCHER_SWIFT))).astype(np.float32)
@@ -219,7 +219,7 @@ def swiftf0_direct(x16: np.ndarray, avance: int = 4, seuil: float = 0.5, norme: 
     return t, f, fv, c
 
 
-# --- La référence du détecteur de l'app (`web/src/audio/swiftf0.test.ts`) : des sons faits
+# --- La référence du détecteur de l'app (`src/audio/swiftf0.test.ts`) : des sons faits
 # par formule, ici et là-bas avec les mêmes calculs, et ce qu'en dit SwiftF0 en direct
 # comme dans l'app (2 trames d'avance, 2 trames par inférence, fenêtre normée). Le JSON
 # garde les formules, pas les échantillons.
@@ -271,7 +271,7 @@ def reference() -> None:
     for s in SONS_REFERENCE:
         _, f, _, c = swiftf0_direct(son_reference(s, 16000), 2, 0.3, norme=True, par=2)
         sons.append(s | {"f0": np.round(f, 4).tolist(), "c": np.round(c, 5).tolist()})
-    sortie = RACINE / "web" / "src" / "audio" / "swiftf0.reference.json"
+    sortie = RACINE / "src" / "audio" / "swiftf0.reference.json"
     texte = json.dumps({"duree": DUREE_REFERENCE, "avance": 2, "par": 2, "niveau": NIVEAU_SWIFT, "plancher": PLANCHER_SWIFT,
                         "sons": sons}, ensure_ascii=False)
     sortie.write_text(texte + "\n")
@@ -358,7 +358,7 @@ def python(detecteurs: list[str] | None = None) -> None:
 def pitchy() -> None:
     env = {**os.environ, "BANC_DOSSIER": str(CONDITIONS)}
     env.setdefault("XDG_RUNTIME_DIR", os.environ.get("TMPDIR", "/tmp") + "/run")
-    commande = ["nice", "-n", "19", "pnpm", "--dir", str(RACINE / "web"), "exec", "vitest", "run", "banc"]
+    commande = ["nice", "-n", "19", "pnpm", "--dir", str(RACINE), "exec", "vitest", "run", "banc"]
     subprocess.run(commande, env=env, check=True)
 
 
@@ -458,7 +458,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 - swiftf0-direct : SwiftF0, 4 trames d'avance (64 ms) ; -a2 : 2 trames ; -s0.3 : chantée
   dès une confiance de 0,3 (0,5 sinon).
 - pesto-direct : PESTO en flux (blocs de 20 ms, 48 kHz). pyin, swiftf0, pesto : hors ligne.
-- swiftf0-web : l'app depuis le 18.11.2026 (`web/src/audio/swiftf0.ts`, onnxruntime-web) :
+- swiftf0-web : l'app depuis le 18.11.2026 (`src/audio/swiftf0.ts`, onnxruntime-web) :
   blocs de 256 échantillons à 48 kHz, rééchantillonnés à 16 kHz, 2 trames d'avance,
   2 trames par inférence, chaque fenêtre sans sa moyenne et mise à −20 dB, confiance 0,3,
   et le volume minimal de l'app (−50 dB).

@@ -1,4 +1,4 @@
-// Les routes du serveur Python (`src/scriptorium/serveur.py`).
+// Les routes du serveur Python de scriptorium (`~/code/scriptorium`, `src/scriptorium/serveur.py`).
 
 export interface ProgrammeResume {
   nom: string;

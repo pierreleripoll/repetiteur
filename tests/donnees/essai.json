@@ -1,0 +1,32 @@
+{
+ "nom": "essai",
+ "titre": "Essai",
+ "jour": "2026-11-26",
+ "pieces": [
+  {
+   "nom": "antienne",
+   "role": "antienne",
+   "titre": "Ecce quam bonum",
+   "incipit": "Ecce quam bonum",
+   "gabc": "name:Ecce quam bonum;\nannotation:1.a;\nmode:1;\nbook:The Liber Usualis, 1961, p. 295 & Liber antiphonarius, 1960, p. 158;\ntranscriber:Andrew Hinkley;\n%%\n(c4) EC(h')ce(h) quam(g) bo(g)num(e'_[oh:h]) *() et(f) quam(g) ju(e')cún(f)dum,(d.) (,) ha(e)bi(f)tá(h')re(g) fra(e_[uh:l]f)tres(g) in(fe) u(d.)num!(d.) (::)",
+   "musicxml": null,
+   "ton": null,
+   "mode": "1",
+   "avant": "",
+   "apres": ""
+  },
+  {
+   "nom": "autre",
+   "role": "autre",
+   "titre": "Kyrie",
+   "incipit": "Kyrie eleison.",
+   "gabc": null,
+   "musicxml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n<!-- Une pièce à deux voix faite pour les tests (pas une vraie pièce) : un silence au milieu\n     (deux phrases), et les altérations de l'éditeur écrites en paroles n° 9, comme dans les\n     MusicXML de Franco : « # » sur le do de la basse (do♯), « ♭ » sur le si du dessus (si♭). -->\n<!DOCTYPE score-partwise PUBLIC \"-//Recordare//DTD MusicXML 3.0 Partwise//EN\" \"http://www.musicxml.org/dtds/partwise.dtd\">\n<score-partwise>\n  <work><work-title>Kyrie à deux voix</work-title></work>\n  <part-list>\n    <score-part id=\"P1\"><part-name>Superius</part-name></score-part>\n    <score-part id=\"P2\"><part-name>Bassus</part-name></score-part>\n  </part-list>\n  <part id=\"P1\">\n    <measure number=\"1\">\n      <attributes>\n        <divisions>1</divisions>\n        <key><fifths>0</fifths></key>\n        <time><beats>2</beats><beat-type>2</beat-type></time>\n        <clef><sign>G</sign><line>2</line></clef>\n      </attributes>\n      <sound tempo=\"120\"/>\n      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>begin</syllabic><text>Ky</text></lyric></note>\n      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>middle</syllabic><text>ri</text></lyric></note>\n    </measure>\n    <measure number=\"2\">\n      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>end</syllabic><text>e</text></lyric></note>\n      <note><rest/><duration>2</duration><type>half</type></note>\n    </measure>\n    <measure number=\"3\">\n      <note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>begin</syllabic><text>e</text></lyric></note>\n      <note><pitch><step>B</step><octave>4</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>middle</syllabic><text>le</text></lyric>\n        <lyric number=\"9\"><syllabic>single</syllabic><text>♭</text></lyric></note>\n    </measure>\n    <measure number=\"4\">\n      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>middle</syllabic><text>i</text></lyric></note>\n      <note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>end</syllabic><text>son.</text></lyric></note>\n      <barline location=\"right\"><bar-style>light-heavy</bar-style></barline>\n    </measure>\n  </part>\n  <part id=\"P2\">\n    <measure number=\"1\">\n      <attributes>\n        <divisions>1</divisions>\n        <key><fifths>0</fifths></key>\n        <time><beats>2</beats><beat-type>2</beat-type></time>\n        <clef><sign>F</sign><line>4</line></clef>\n      </attributes>\n      <note><pitch><step>D</step><octave>3</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>begin</syllabic><text>Ky</text></lyric></note>\n      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>middle</syllabic><text>ri</text></lyric></note>\n    </measure>\n    <measure number=\"2\">\n      <note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>end</syllabic><text>e</text></lyric></note>\n      <note><rest/><duration>2</duration><type>half</type></note>\n    </measure>\n    <measure number=\"3\">\n      <note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>begin</syllabic><text>e</text></lyric></note>\n      <note><pitch><step>C</step><octave>3</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>middle</syllabic><text>le</text></lyric>\n        <lyric number=\"9\"><syllabic>single</syllabic><text>#</text></lyric></note>\n    </measure>\n    <measure number=\"4\">\n      <note><pitch><step>E</step><octave>3</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>middle</syllabic><text>i</text></lyric></note>\n      <note><pitch><step>D</step><octave>3</octave></pitch><duration>2</duration><type>half</type>\n        <lyric number=\"1\"><syllabic>end</syllabic><text>son.</text></lyric></note>\n      <barline location=\"right\"><bar-style>light-heavy</bar-style></barline>\n    </measure>\n  </part>\n</score-partwise>\n",
+   "ton": null,
+   "mode": null,
+   "avant": "",
+   "apres": ""
+  }
+ ],
+ "avertissements": []
+}

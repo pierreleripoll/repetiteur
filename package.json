@@ -1,5 +1,5 @@
 {
-  "name": "scriptorium-web",
+  "name": "repetiteur",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "test": "vitest run",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "e2e": "uv run --with pytest pytest tests"
   },
   "dependencies": {
     "exsurge-ts": "github:bbloomf/exsurge#2236c29686104395eed2c7e39eefd320ffe59f48",

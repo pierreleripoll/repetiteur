@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 // polyphonie.ts sur un MusicXML fait pour les tests (`tests/donnees/kyrie_deux_voix.musicxml`)
-// et sur le Memento mei de Franco (`programmes/office_morts/`).
-import { readFileSync } from "node:fs";
+// et sur le Memento mei de Franco. Ce MusicXML vient de la schola et n'est pas libre : il
+// reste dans le dépôt scriptorium (`programmes/office_morts/`, `$SCRIPTORIUM` ou
+// `~/code/scriptorium`). Sans lui, son test est sauté.
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ficta, lireMusicXml, noteA, notesDuSuiveur, pourVerovio, voixProche } from "./polyphonie";
 
-const RACINE = resolve(__dirname, "../../..");
+const RACINE = resolve(__dirname, "../..");
+const SCRIPTORIUM = process.env.SCRIPTORIUM ?? resolve(homedir(), "code/scriptorium");
+const MEMENTO = resolve(SCRIPTORIUM, "programmes/office_morts/memento_mei_franco.musicxml");
 const lire = (chemin: string) => lireMusicXml(readFileSync(resolve(RACINE, chemin), "utf8"));
 
 describe("polyphonie", () => {
@@ -52,8 +57,8 @@ describe("polyphonie", () => {
     expect(notes.map((n) => n.hauteur)).toEqual([-10, -8, -7, -3, -11, -8, -10]);
   });
 
-  it("lit le Memento mei de Franco : quatre voix, les altérations de l'éditeur", () => {
-    const p = lire("programmes/office_morts/memento_mei_franco.musicxml");
+  it.skipIf(!existsSync(MEMENTO))("lit le Memento mei de Franco : quatre voix, les altérations de l'éditeur", () => {
+    const p = lire(MEMENTO);
     expect(p.titre).toBe("Memento mei, Deus");
     expect(p.voix.map((v) => v.nom)).toEqual(["Tiple", "Alto", "[Tenor]", "Bajo"]);
     expect(p.voix.map((v) => v.notes.length)).toEqual([90, 113, 112, 157]);

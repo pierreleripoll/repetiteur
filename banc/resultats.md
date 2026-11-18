@@ -12,7 +12,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 - swiftf0-direct : SwiftF0, 4 trames d'avance (64 ms) ; -a2 : 2 trames ; -s0.3 : chantée
   dès une confiance de 0,3 (0,5 sinon).
 - pesto-direct : PESTO en flux (blocs de 20 ms, 48 kHz). pyin, swiftf0, pesto : hors ligne.
-- swiftf0-web : l'app depuis le 18.11.2026 (`web/src/audio/swiftf0.ts`, onnxruntime-web) :
+- swiftf0-web : l'app depuis le 18.11.2026 (`src/audio/swiftf0.ts`, onnxruntime-web) :
   blocs de 256 échantillons à 48 kHz, rééchantillonnés à 16 kHz, 2 trames d'avance,
   2 trames par inférence, chaque fenêtre sans sa moyenne et mise à −20 dB, confiance 0,3,
   et le volume minimal de l'app (−50 dB).
