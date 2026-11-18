@@ -36,7 +36,7 @@ export interface Geometrie {
   notes: { x: number; y: number; ligne: number }[];
 }
 
-const VITESSE = 1.5; // px par mesure (une toutes les 20 ms)
+const VITESSE = 1.2; // px par mesure (une toutes les 16 ms avec SwiftF0, 20 ms avec pitchy)
 const HORS = 7; // positions : au-delà (une octave), on ne dessine pas
 const TROU = 3; // mesures sans hauteur à la suite : en dessous, le trait continue
 

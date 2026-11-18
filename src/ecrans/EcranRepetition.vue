@@ -9,8 +9,9 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { api, type PieceBibliotheque, type Programme, type ProgrammeResume } from "../api";
-import { Detecteur, type Mesure } from "../audio/hauteur";
-import { ouvrirMicro, type Micro } from "../audio/micro";
+import { ecouterChanteur, type EtatDetecteur, type NomDetecteur } from "../audio/ecoute";
+import type { Mesure } from "../audio/hauteur";
+import type { Micro } from "../audio/micro";
 import { bourdon, donnerLeTon, jouer, jouerVoix, type Lecture } from "../audio/son";
 import type { NoteChant, Partition } from "../chant/partition";
 import { cents, degre, nomNote } from "../chant/solfege";
@@ -113,8 +114,8 @@ function lireColle() {
 
 /** Les réglages de l'adresse à garder quand on change de pièce. */
 function garde() {
-  const { micro } = route.query;
-  return micro ? { micro } : {};
+  const { micro, detecteur } = route.query;
+  return { ...(micro ? { micro } : {}), ...(detecteur ? { detecteur } : {}) };
 }
 
 // --- La pièce lue, le suiveur ------------------------------------------------------------
@@ -259,6 +260,19 @@ const calage = ref(false);
 let calageur = new Calage();
 const mesures: Mesure[] = [];
 const derniere = shallowRef<Mesure | null>(null);
+/** qui mesure la hauteur : SwiftF0, ou pitchy en secours */
+const detecteur = ref<EtatDetecteur>({ nom: "pitchy", raison: "chargement" });
+/** `?detecteur=pitchy`, ou la case « pitchy » : pitchy seul, pour comparer */
+const choixDetecteur = computed<NomDetecteur>(() =>
+  route.query.detecteur === "pitchy" || reglages.pitchySeul ? "pitchy" : "swiftf0",
+);
+const nomDetecteur = computed(() => {
+  const d = detecteur.value;
+  if (d.nom === "swiftf0") return "SwiftF0";
+  if (d.raison === "chargement") return "pitchy (SwiftF0 se charge)";
+  if (d.raison === "echec") return "pitchy (SwiftF0 a échoué)";
+  return "pitchy";
+});
 
 async function basculerMicro() {
   if (micro) {
@@ -268,13 +282,8 @@ async function basculerMicro() {
     calage.value = false;
     return;
   }
-  const taille = reglages.voixGrave ? REGLAGES.fenetreGrave : REGLAGES.fenetre;
   try {
-    let detecteur: Detecteur | null = null;
-    micro = await ouvrirMicro(taille, (tampon, temps) => {
-      detecteur ??= new Detecteur(taille, micro!.frequenceEchantillons);
-      recevoir(detecteur.mesurer(tampon, temps));
-    });
+    micro = await ecouterChanteur(recevoir, (d) => (detecteur.value = d), choixDetecteur.value);
     microOuvert.value = true;
     nomMicro.value = micro.nom;
   } catch (e) {
@@ -282,7 +291,7 @@ async function basculerMicro() {
   }
 }
 
-watch(() => reglages.voixGrave, async () => {
+watch(choixDetecteur, async () => {
   if (!micro) return;
   await basculerMicro();
   await basculerMicro();
@@ -466,6 +475,7 @@ onBeforeUnmount(() => {
     :data-courante="courantes[0] ?? ''"
     :data-notes="notes.length"
     :data-do="doMidi"
+    :data-detecteur="microOuvert ? detecteur.nom : ''"
   >
     <section class="choix">
       <label>
@@ -533,7 +543,9 @@ onBeforeUnmount(() => {
           Bourdon
         </button>
         <button type="button" @click="recommencer">Recommencer</button>
-        <label class="machine"><input v-model="reglages.voixGrave" type="checkbox" /> voix grave</label>
+        <label class="machine" title="mesurer la voix avec pitchy au lieu de SwiftF0, pour comparer">
+          <input v-model="reglages.pitchySeul" type="checkbox" /> pitchy
+        </label>
       </section>
 
       <section v-if="polyphonie" class="commandes voix-pieces">
@@ -555,7 +567,14 @@ onBeforeUnmount(() => {
       </section>
 
       <p class="etat">{{ consigne }}</p>
-      <Accordeur v-if="microOuvert" :mesure="derniere" :cible="cible" :micro="nomMicro" :en-pause="enPause" />
+      <Accordeur
+        v-if="microOuvert"
+        :mesure="derniere"
+        :cible="cible"
+        :micro="nomMicro"
+        :detecteur="nomDetecteur"
+        :en-pause="enPause"
+      />
 
       <VuePolyphonie
         v-if="choix.musicxml"

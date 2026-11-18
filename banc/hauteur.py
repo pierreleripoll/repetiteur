@@ -20,8 +20,9 @@ de portable. Les détecteurs de l'app (pitchy, dans `web/banc/`) et des modèles
 
     uv run --script banc/hauteur.py preparer     # vocadito → donnees/banc/conditions (800 Mo)
     uv run --script banc/hauteur.py python       # pYIN, SwiftF0, PESTO (25 min, 3 cœurs)
-    BANC_DOSSIER=… pnpm --dir web exec vitest run banc   # pitchy, lancé par `tout`
+    BANC_DOSSIER=… pnpm --dir web exec vitest run banc   # pitchy et swiftf0-web, lancé par `tout`
     uv run --script banc/hauteur.py bilan        # banc/resultats.md
+    uv run --script banc/hauteur.py reference    # web/src/audio/swiftf0.reference.json
     uv run --script banc/hauteur.py tout
 
 vocadito doit être dézippé dans `donnees/banc/vocadito/` (Audio/, Annotations/).
@@ -174,26 +175,107 @@ def swiftf0(x16: np.ndarray):
     return r.timestamps, r.pitch_hz, np.where(r.confidence >= 0.5, r.pitch_hz, 0)
 
 
-def swiftf0_direct(x16: np.ndarray, avance: int = 4, seuil: float = 0.5):
+# Le niveau où l'app met chaque fenêtre avant SwiftF0 (dB, RMS), et le RMS sous lequel
+# elle n'amplifie plus (le silence numérique reste nul). Comme `REGLAGES.niveauSwift`.
+NIVEAU_SWIFT = -20.0
+PLANCHER_SWIFT = 1e-4
+
+
+def normer(bout: np.ndarray) -> np.ndarray:
+    """La fenêtre sans sa moyenne (le décalage continu du micro du ThinkPad) et au niveau
+    `NIVEAU_SWIFT` : la confiance de SwiftF0 tombe avec le niveau (sur vocadito, de 97 à 63 %
+    de trames justes entre −26 et −48 dB). Comme `normer` dans `web/src/audio/swiftf0.ts`."""
+    b = bout.astype(np.float64)
+    b -= b.mean()
+    return (b * (db(NIVEAU_SWIFT) / max(rms(b), PLANCHER_SWIFT))).astype(np.float32)
+
+
+def swiftf0_direct(x16: np.ndarray, avance: int = 4, seuil: float = 0.5, norme: bool = False, par: int = 1):
     """SwiftF0 en direct : chaque trame dès que `avance` trames de 16 ms la suivent. À 4, sa
     fenêtre de 128 ms est entière ; le modèle en voudrait 10 pour rendre le même résultat
     qu'hors ligne. À 0, sa confiance reste nulle. Une trame est chantée si sa confiance
-    atteint `seuil` (0,5 pour le modèle). Rend aussi la confiance (c)."""
+    atteint `seuil` (0,5 pour le modèle). `norme` : chaque fenêtre passe par `normer`,
+    comme dans l'app. `par` : les trames mesurées par inférence (l'app : 2, la première a
+    alors une trame d'avance de plus). Rend aussi la confiance (c)."""
     from swift_f0.core import FMAX, FMIN, HOP, LEFT_FRAMES
 
     d = swift()
     x = np.concatenate([np.zeros(LEFT_FRAMES * HOP, np.float32), x16.astype(np.float32)])
     n = len(x16) // HOP
     t, f, fv, c = np.zeros(n), np.zeros(n), np.zeros(n), np.zeros(n)
-    for i in range(n):
+    for i in range(0, n, par):
         debut = i * HOP  # = (i - LEFT_FRAMES) * HOP dans x16
-        bout = x[debut : debut + (LEFT_FRAMES + avance + 1) * HOP]
+        bout = x[debut : debut + (LEFT_FRAMES + avance + par) * HOP]
+        if norme:
+            bout = normer(bout)
         p, conf, _ = d._run(bout, FMIN, FMAX)
-        f[i] = p[LEFT_FRAMES]
-        c[i] = conf[LEFT_FRAMES]
-        fv[i] = f[i] if c[i] >= seuil else 0
-        t[i] = min(len(bout) - LEFT_FRAMES * HOP + i * HOP, len(x16)) / 16000
+        for k in range(i, min(i + par, n)):
+            if LEFT_FRAMES + k - i >= len(p):
+                break
+            f[k] = p[LEFT_FRAMES + k - i]
+            c[k] = conf[LEFT_FRAMES + k - i]
+            fv[k] = f[k] if c[k] >= seuil else 0
+            t[k] = min(len(bout) - LEFT_FRAMES * HOP + i * HOP, len(x16)) / 16000
     return t, f, fv, c
+
+
+# --- La référence du détecteur de l'app (`web/src/audio/swiftf0.test.ts`) : des sons faits
+# par formule, ici et là-bas avec les mêmes calculs, et ce qu'en dit SwiftF0 en direct
+# comme dans l'app (2 trames d'avance, 2 trames par inférence, fenêtre normée). Le JSON
+# garde les formules, pas les échantillons.
+
+SONS_REFERENCE = [
+    {"nom": "la1", "f": 110},
+    {"nom": "la2", "f": 220},
+    {"nom": "la3", "f": 440},
+    {"nom": "harmonique 2 plus forte", "f": 130.81, "harmoniques": [0.5, 1, 0.5, 0.3]},
+    {"nom": "glissando", "f": 196, "f_fin": 294},
+    {"nom": "vibrato", "f": 262, "vibrato": [5.5, 50]},
+    {"nom": "décalage continu", "f": 110, "amplitude": 0.02, "continu": 0.2},
+    {"nom": "attaque", "f": 330, "debut": 0.2},
+    {"nom": "voix douce", "f": 220, "amplitude": 0.01},
+    {"nom": "voix faible", "f": 220, "amplitude": 0.002},
+    {"nom": "silence", "amplitude": 0},
+    {"nom": "bruit", "bruit": 0.5},
+]
+DUREE_REFERENCE = 0.6
+
+
+def son_reference(s: dict, fe: int) -> np.ndarray:
+    """Le son `s` à `fe` Hz, en float32. Les mêmes calculs que `sonReference` en TS : la
+    phase est une somme, pas à pas, de la fréquence du moment."""
+    n = round(DUREE_REFERENCE * fe)
+    if "bruit" in s:
+        graine, x = 7, np.zeros(n)
+        for i in range(n):
+            graine = graine * 16807 % 2147483647
+            x[i] = s["bruit"] * (graine / 2147483647 - 0.5)
+        return x.astype(np.float32)
+    t = np.arange(n) / fe
+    f0 = s.get("f", 220)
+    f = f0 * (s.get("f_fin", f0) / f0) ** (t / DUREE_REFERENCE)
+    if "vibrato" in s:
+        vitesse, largeur = s["vibrato"]
+        f = f * 2 ** (largeur / 1200 * np.sin(2 * np.pi * vitesse * t))
+    phase = np.cumsum(2 * np.pi * f / fe)
+    x = np.zeros(n)
+    for k, a in enumerate(s.get("harmoniques", [1, 0.6, 0.4, 0.25])):
+        x += a * np.sin((k + 1) * phase)
+    x *= s.get("amplitude", 0.3)
+    x[t < s.get("debut", 0)] = 0
+    return (x + s.get("continu", 0)).astype(np.float32)
+
+
+def reference() -> None:
+    sons = []
+    for s in SONS_REFERENCE:
+        _, f, _, c = swiftf0_direct(son_reference(s, 16000), 2, 0.3, norme=True, par=2)
+        sons.append(s | {"f0": np.round(f, 4).tolist(), "c": np.round(c, 5).tolist()})
+    sortie = RACINE / "web" / "src" / "audio" / "swiftf0.reference.json"
+    texte = json.dumps({"duree": DUREE_REFERENCE, "avance": 2, "par": 2, "niveau": NIVEAU_SWIFT, "plancher": PLANCHER_SWIFT,
+                        "sons": sons}, ensure_ascii=False)
+    sortie.write_text(texte + "\n")
+    print(sortie, len(sons), "sons")
 
 
 def pesto_hors_ligne(x16: np.ndarray):
@@ -376,6 +458,10 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 - swiftf0-direct : SwiftF0, 4 trames d'avance (64 ms) ; -a2 : 2 trames ; -s0.3 : chantée
   dès une confiance de 0,3 (0,5 sinon).
 - pesto-direct : PESTO en flux (blocs de 20 ms, 48 kHz). pyin, swiftf0, pesto : hors ligne.
+- swiftf0-web : l'app depuis le 18.11.2026 (`web/src/audio/swiftf0.ts`, onnxruntime-web) :
+  blocs de 256 échantillons à 48 kHz, rééchantillonnés à 16 kHz, 2 trames d'avance,
+  2 trames par inférence, chaque fenêtre sans sa moyenne et mise à −20 dB, confiance 0,3,
+  et le volume minimal de l'app (−50 dB).
 
 """
 
@@ -438,6 +524,8 @@ if __name__ == "__main__":
         python(sys.argv[2:] or None)
     if action in ("pitchy", "tout"):
         pitchy()
+    if action == "reference":
+        reference()
     if action in ("bilan", "tout"):
         texte = bilan(sys.argv[2:] or None)
         if action == "tout" or not sys.argv[2:]:

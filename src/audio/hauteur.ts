@@ -1,4 +1,7 @@
-// La hauteur de la voix, mesure par mesure : la méthode de McLeod (pitchy, MIT) donne une
+// La hauteur de la voix par pitchy, en secours de SwiftF0 (`swiftf0.ts`) : pendant que le
+// modèle se charge, s'il échoue, ou si on le demande (`?detecteur=pitchy`).
+//
+// Mesure par mesure : la méthode de McLeod (pitchy, MIT) donne une
 // fréquence et sa clarté (0 à 1). Une médiane sur les dernières mesures enlève les sauts
 // d'octave isolés.
 //
@@ -16,11 +19,15 @@ import { midiDe } from "../chant/solfege";
 import { REGLAGES, type Reglages } from "../reglages";
 
 export interface Mesure {
-  /** ms, l'horloge du contexte audio */
+  /** ms, l'horloge du contexte audio : l'instant du son mesuré (le retard du détecteur
+   * est retiré) */
   temps: number;
   /** la note chantée (MIDI, avec les cents en décimales), null si rien ne compte */
   midi: number | null;
+  /** la netteté de la note, 0 à 1 : la clarté de McLeod, ou la confiance de SwiftF0 */
   clarte: number;
+  /** le seuil de netteté du détecteur (pour l'accordeur) */
+  seuil: number;
   volume: number;
   /** la note entendue, même si elle ne compte pas (voix trop faible, pas assez nette) :
    * pour voir ce que capte le micro. null si ce n'est que du bruit. */
@@ -72,11 +79,11 @@ export class Detecteur {
     if (!voix || v < r.volumeMin || !(nette || suite)) {
       this.recentes = [];
       this.derniere = null;
-      return { temps, midi: null, clarte, volume: v, brute };
+      return { temps, midi: null, clarte, seuil: r.clarteMin, volume: v, brute };
     }
     this.derniere = midi;
     this.recentes.push(midi);
     if (this.recentes.length > r.mediane) this.recentes.shift();
-    return { temps, midi: mediane(this.recentes), clarte, volume: v, brute };
+    return { temps, midi: mediane(this.recentes), clarte, seuil: r.clarteMin, volume: v, brute };
   }
 }

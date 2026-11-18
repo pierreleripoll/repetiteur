@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "exsurge-ts": "github:bbloomf/exsurge#2236c29686104395eed2c7e39eefd320ffe59f48",
+    "onnxruntime-web": "1.31.1",
     "pinia": "^4.1.0",
     "pitchy": "^4.1.0",
     "verovio": "6.4.1",

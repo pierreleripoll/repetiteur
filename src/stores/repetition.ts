@@ -1,5 +1,5 @@
 // Ce que la répétition garde d'une fois sur l'autre, dans ce navigateur : le do choisi
-// pour chaque pièce, la voix chantée d'une pièce à plusieurs voix, la voix grave.
+// pour chaque pièce, la voix chantée d'une pièce à plusieurs voix, pitchy au lieu de SwiftF0.
 
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
@@ -21,8 +21,9 @@ function ecrireLocal(cle: string, valeur: string): void {
 }
 
 export const useRepetition = defineStore("repetition", () => {
-  const voixGrave = ref(lireLocal("scriptorium:voix-grave") === "oui");
-  watch(voixGrave, (v) => ecrireLocal("scriptorium:voix-grave", v ? "oui" : "non"));
+  /** mesurer la voix avec pitchy (pour comparer), pas avec SwiftF0 */
+  const pitchySeul = ref(lireLocal("scriptorium:pitchy-seul") === "oui");
+  watch(pitchySeul, (v) => ecrireLocal("scriptorium:pitchy-seul", v ? "oui" : "non"));
 
   /** Le do gardé pour la pièce `cle`, ou `defaut`. */
   function doPour(cle: string, defaut: number): number {
@@ -44,5 +45,5 @@ export const useRepetition = defineStore("repetition", () => {
     ecrireLocal(`scriptorium:voix:${cle}`, String(rang));
   }
 
-  return { voixGrave, doPour, garderDo, voixPour, garderVoix };
+  return { pitchySeul, doPour, garderDo, voixPour, garderVoix };
 });

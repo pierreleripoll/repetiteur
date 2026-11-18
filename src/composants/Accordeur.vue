@@ -13,6 +13,8 @@ const props = defineProps<{
   cible: number | null;
   /** le nom de l'entrée du micro */
   micro: string;
+  /** qui mesure la hauteur (« SwiftF0 », « pitchy (SwiftF0 se charge) ») */
+  detecteur: string;
   /** le contexte audio est en pause */
   enPause: boolean;
 }>();
@@ -27,6 +29,8 @@ const pourcent = (x: number) => `${(x * 100).toFixed(1)}%`;
 const niveau = computed(() => db(props.mesure?.volume ?? 0));
 const seuilNiveau = part(db(REGLAGES.volumeMin));
 const clarte = computed(() => Math.max(0, props.mesure?.clarte ?? 0));
+/** le seuil de netteté du détecteur : 0,3 (confiance de SwiftF0) ou 0,9 (clarté de pitchy) */
+const seuil = computed(() => props.mesure?.seuil ?? REGLAGES.confianceMin);
 const compte = computed(() => props.mesure?.midi != null);
 const note = computed(() => props.mesure?.midi ?? props.mesure?.brute ?? null);
 
@@ -36,7 +40,7 @@ const raison = computed(() => {
   if (!m || compte.value) return "";
   if (m.volume < 1e-4) return "Le micro ne reçoit rien : vérifiez l'entrée choisie (réglages du son, ou l'icône micro de la barre d'adresse).";
   if (m.volume < REGLAGES.volumeMin) return "Trop faible : chantez plus fort, rapprochez-vous, ou montez le volume d'entrée du micro.";
-  if (m.clarte < REGLAGES.clarteMin) return "Pas assez net pour compter : tenez une voyelle.";
+  if (m.clarte < m.seuil) return "Pas assez net pour compter : tenez une voyelle.";
   return "Hors des fréquences d'une voix.";
 });
 
@@ -68,12 +72,12 @@ const juste = computed(() => ecart.value !== null && Math.abs(ecart.value) <= RE
       </span>
       <span class="chiffre">{{ Number.isFinite(niveau) ? Math.round(niveau) + " dB" : "—" }}</span>
     </span>
-    <span class="jauge" title="la netteté de la note (clarté) ; le trait : le seuil">
+    <span class="jauge" title="la netteté de la note (confiance de SwiftF0, clarté de pitchy) ; le trait : le seuil">
       netteté
       <span class="barre">
-        <!-- Une voix déjà suivie compte encore sous le seuil (`clarteGarde`) : pas en rouge. -->
-        <span class="plein" :class="{ bas: clarte < REGLAGES.clarteMin && !compte }" :style="{ width: pourcent(clarte) }"></span>
-        <span class="seuil" :style="{ left: pourcent(REGLAGES.clarteMin) }"></span>
+        <!-- pitchy : une voix déjà suivie compte encore sous le seuil (`clarteGarde`) : pas en rouge. -->
+        <span class="plein" :class="{ bas: clarte < seuil && !compte }" :style="{ width: pourcent(clarte) }"></span>
+        <span class="seuil" :style="{ left: pourcent(seuil) }"></span>
       </span>
       <span class="chiffre">{{ clarte.toFixed(2) }}</span>
     </span>
@@ -89,7 +93,9 @@ const juste = computed(() => ecart.value !== null && Math.abs(ecart.value) <= RE
       <span>{{ sens }}</span>
     </span>
     <p v-if="raison" class="raison">{{ raison }}</p>
-    <p v-if="micro" class="entree">entrée : {{ micro }}</p>
+    <p v-if="micro || detecteur" class="entree">
+      <template v-if="micro">entrée : {{ micro }} · </template>hauteur : {{ detecteur }}
+    </p>
   </div>
 </template>
 

@@ -1,7 +1,8 @@
 """La répétition de bout en bout : la page construite (`web/dist`), servie par `serveur.py`,
 dans Chrome sans écran, avec un faux micro qui « chante » une antienne, ou la basse d'un
 Kyrie à deux voix (MusicXML, gravé par Verovio). Le curseur doit aller jusqu'à la dernière
-note.
+note. La hauteur est mesurée par SwiftF0 (onnxruntime-web dans un worker), ou par pitchy
+si on le demande (`?detecteur=pitchy`).
 
 Le faux micro de Chrome lit un fichier WAV (`--use-file-for-fake-audio-capture`), fait
 ici depuis les notes de la pièce. On lit l'état de la page par le protocole de Chrome
@@ -143,12 +144,13 @@ def adresse(tmp_path):
 
 
 def chanter(adresse, tmp_path, ecart_cents: float, continu=0.0, notes=ECCE, do=DO,
-            piece="antienne", voix=None) -> dict:
+            piece="antienne", voix=None, detecteur=None) -> dict:
     """Le faux micro chante `notes` ; l'état de la page à la fin (ou après 30 s)."""
     fichier = tmp_path / "voix.wav"
     wav(fichier, notes, ecart_cents, continu, do)
     avec_voix = f"&voix={voix}" if voix is not None else ""
-    chrome = Chrome(f"{adresse}/repetition?programme=essai&piece={piece}&do={do}{avec_voix}&micro=1",
+    avec_detecteur = f"&detecteur={detecteur}" if detecteur else ""
+    chrome = Chrome(f"{adresse}/repetition?programme=essai&piece={piece}&do={do}{avec_voix}{avec_detecteur}&micro=1",
                     f"--user-data-dir={tmp_path / 'profil'}", "--use-fake-ui-for-media-stream",
                     "--use-fake-device-for-media-stream", f"--use-file-for-fake-audio-capture={fichier}",
                     "--autoplay-policy=no-user-gesture-required")
@@ -175,15 +177,25 @@ def chanter(adresse, tmp_path, ecart_cents: float, continu=0.0, notes=ECCE, do=D
 def test_le_curseur_suit_la_voix_jusqu_a_la_fin(avec_chrome, adresse, tmp_path):
     """Avec le décalage continu du micro interne du ThinkPad : le premier essai de Pierre."""
     etat = chanter(adresse, tmp_path, 0, continu=0.2)
+    assert etat.get("detecteur") == "swiftf0", etat
     assert etat.get("notes") == "21", etat
     assert etat.get("etat") == "fini", etat
     assert "0 note à plus de 25 cents" in etat["texte"], etat["texte"]
     assert etat["trait"] > 1000, "la voix n'est pas dessinée sur la portée"
 
 
+def test_pitchy_si_on_le_demande(avec_chrome, adresse, tmp_path):
+    """`?detecteur=pitchy` : pitchy seul, comme avant SwiftF0 (pour comparer)."""
+    etat = chanter(adresse, tmp_path, 0, continu=0.2, detecteur="pitchy")
+    assert etat.get("detecteur") == "pitchy", etat
+    assert etat.get("etat") == "fini", etat
+    assert "0 note à plus de 25 cents" in etat["texte"], etat["texte"]
+
+
 def test_une_voix_trop_basse_sort_au_minium(avec_chrome, adresse, tmp_path):
     """35 cents trop bas : le curseur suit (moins de 50), mais toutes les notes sont fausses."""
     etat = chanter(adresse, tmp_path, -35)
+    assert etat.get("detecteur") == "swiftf0", etat
     assert etat.get("etat") == "fini", etat
     assert "21 notes à plus de 25 cents" in etat["texte"], etat["texte"]
 
@@ -191,6 +203,7 @@ def test_une_voix_trop_basse_sort_au_minium(avec_chrome, adresse, tmp_path):
 def test_une_voix_d_une_piece_a_plusieurs_voix(avec_chrome, adresse, tmp_path):
     """Le Kyrie à deux voix, gravé par Verovio : le chanteur prend la basse (`voix=1`)."""
     etat = chanter(adresse, tmp_path, 0, notes=KYRIE_BASSE, do=60, piece="autre", voix=1)
+    assert etat.get("detecteur") == "swiftf0", etat
     assert etat.get("gravees") == "7", etat           # chaque note de la basse a sa tête gravée
     assert etat.get("notes") == "7", etat
     assert etat.get("etat") == "fini", etat

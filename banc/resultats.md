@@ -12,6 +12,10 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 - swiftf0-direct : SwiftF0, 4 trames d'avance (64 ms) ; -a2 : 2 trames ; -s0.3 : chantée
   dès une confiance de 0,3 (0,5 sinon).
 - pesto-direct : PESTO en flux (blocs de 20 ms, 48 kHz). pyin, swiftf0, pesto : hors ligne.
+- swiftf0-web : l'app depuis le 18.11.2026 (`web/src/audio/swiftf0.ts`, onnxruntime-web) :
+  blocs de 256 échantillons à 48 kHz, rééchantillonnés à 16 kHz, 2 trames d'avance,
+  2 trames par inférence, chaque fenêtre sans sa moyenne et mise à −20 dB, confiance 0,3,
+  et le volume minimal de l'app (−50 dB).
 
 
 | détecteur | sorte | retard (ms) | calcul (ms par s de son) |
@@ -28,6 +32,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 | swiftf0-direct-a2 | direct | 48 | 148 |
 | swiftf0-direct-a2-s0.3 | direct | 48 | 148 |
 | swiftf0-direct-s0.3 | direct | 80 | 158 |
+| swiftf0-web | direct | 68 | 148 |
 
 **Trames justes (%) : chantées, dites chantées, à moins de 50 cents**
 
@@ -45,6 +50,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 | swiftf0-direct-a2 | 96.2 | 97.0 | 85.4 | 56.8 | 63.6 |
 | swiftf0-direct-a2-s0.3 | 96.9 | 97.5 | 88.6 | 62.6 | 76.0 |
 | swiftf0-direct-s0.3 | 97.7 | 97.7 | 88.4 | 61.6 | 85.5 |
+| swiftf0-web | 98.0 | 98.0 | 90.3 | 63.8 | 87.3 |
 
 **Hauteur brute juste (%) : à moins de 50 cents, sans regarder si la trame est dite chantée**
 
@@ -62,6 +68,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 | swiftf0-direct-a2 | 97.4 | 98.0 | 89.5 | 64.5 | 85.4 |
 | swiftf0-direct-a2-s0.3 | 97.4 | 98.0 | 89.5 | 64.5 | 85.4 |
 | swiftf0-direct-s0.3 | 98.1 | 98.1 | 89.3 | 64.6 | 89.4 |
+| swiftf0-web | 98.3 | 98.3 | 90.7 | 65.1 | 90.8 |
 
 **Erreurs d'octave (%)**
 
@@ -79,6 +86,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 | swiftf0-direct-a2 | 0.1 | 0.1 | 0.1 | 0.1 | 0.1 |
 | swiftf0-direct-a2-s0.3 | 0.1 | 0.1 | 0.1 | 0.1 | 0.1 |
 | swiftf0-direct-s0.3 | 0.1 | 0.1 | 0.1 | 0.1 | 0.2 |
+| swiftf0-web | 0.1 | 0.1 | 0.2 | 0.2 | 0.2 |
 
 **Fausses alertes (%) : silence ou souffle dit chanté**
 
@@ -96,6 +104,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 | swiftf0-direct-a2 | 9.4 | 9.7 | 32.7 | 60.3 | 5.9 |
 | swiftf0-direct-a2-s0.3 | 18.7 | 14.2 | 49.2 | 74.9 | 12.1 |
 | swiftf0-direct-s0.3 | 18.2 | 16.0 | 46.5 | 73.6 | 25.6 |
+| swiftf0-web | 16.7 | 17.1 | 46.3 | 78.1 | 26.8 |
 
 **Précision (cents) : écart médian des trames justes**
 
@@ -113,6 +122,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 | swiftf0-direct-a2 | 3.5 | 3.9 | 9.9 | 15.3 | 8.7 |
 | swiftf0-direct-a2-s0.3 | 3.5 | 4.0 | 10.1 | 15.6 | 9.1 |
 | swiftf0-direct-s0.3 | 3.8 | 4.1 | 10.5 | 15.5 | 10.4 |
+| swiftf0-web | 3.7 | 4.0 | 9.8 | 15.3 | 9.9 |
 
 **Notes au faux bilan (%) : écart médian de la note à plus de 25 cents du vrai**
 
@@ -130,6 +140,7 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 | swiftf0-direct-a2 | 1.1 | 0.7 | 7.6 | 32.8 | 7.1 |
 | swiftf0-direct-a2-s0.3 | 1.1 | 0.6 | 8.0 | 38.7 | 9.3 |
 | swiftf0-direct-s0.3 | 0.6 | 0.7 | 8.2 | 36.9 | 8.6 |
+| swiftf0-web | 0.6 | 0.6 | 7.5 | 40.0 | 9.3 |
 
 **Notes manquées (%) : moins de 3 mesures au milieu de la note**
 
@@ -147,3 +158,4 @@ retard est celui qui lui donne le plus de trames justes sur la voix propre.
 | swiftf0-direct-a2 | 0.2 | 0.1 | 1.2 | 8.4 | 14.9 |
 | swiftf0-direct-a2-s0.3 | 0.1 | 0.1 | 0.4 | 1.5 | 5.5 |
 | swiftf0-direct-s0.3 | 0.1 | 0.0 | 0.4 | 3.1 | 1.8 |
+| swiftf0-web | 0.1 | 0.1 | 0.1 | 0.7 | 1.2 |

@@ -1,26 +1,40 @@
 // Les réglages de la répétition, tous ici (PLAN §6.3, la répétition).
 
 export const REGLAGES = {
-  /** Micro : taille de la fenêtre d'analyse (échantillons). 4096 pour une voix grave. */
+  /** SwiftF0 (`audio/swiftf0.ts`) : une trame compte si la confiance du modèle atteint ce
+   * seuil. Le banc : 0,3 avec 2 trames d'avance (`swiftf0-direct-a2-s0.3`). */
+  confianceMin: 0.3,
+  /** SwiftF0 : en dessous, on n'affiche même pas la note captée. Le bruit monte à 0,2 et
+   * plus ; une voix trop faible garde sa confiance (la fenêtre est normée). */
+  confianceVue: 0.3,
+  /** SwiftF0 : une trame se mesure quand `avanceSwift` trames de 16 ms la suivent. */
+  avanceSwift: 2,
+  /** SwiftF0 : les trames mesurées par inférence (2 : deux fois moins de calcul, et la
+   * première a une trame d'avance de plus, 16 ms plus tard). */
+  parInference: 2,
+  /** SwiftF0 : le niveau (dB, RMS) où chaque fenêtre est mise avant le modèle. */
+  niveauSwift: -20,
+  /** pitchy (en secours) : taille de la fenêtre d'analyse (échantillons). */
   fenetre: 2048,
-  fenetreGrave: 4096,
-  /** Micro : une mesure toutes les `periode` ms. */
+  /** pitchy : une mesure toutes les `periode` ms de son. */
   periode: 20,
-  /** Hauteur : une mesure compte si sa clarté (McLeod, 0 à 1) atteint ce seuil… */
+  /** pitchy : le retard de sa mesure (ms, le banc), retiré de son instant. */
+  retardPitchy: 40,
+  /** pitchy : une mesure compte si sa clarté (McLeod, 0 à 1) atteint ce seuil… */
   clarteMin: 0.9,
   /** … et si le volume (RMS du signal, 0 à 1) le dépasse (0,003 : −50 dB). */
   volumeMin: 0.003,
-  /** Hauteur : une voix déjà suivie compte encore jusqu'à cette clarté, si elle reste à
+  /** pitchy : une voix déjà suivie compte encore jusqu'à cette clarté, si elle reste à
    * moins de `sautGarde` demi-tons de la mesure d'avant (la réverbération, le bruit).
    * Le banc (`banc/resultats.md`) : 6 à 11 points de trames justes en plus. */
   clarteGarde: 0.5,
   sautGarde: 1,
-  /** Hauteur : en dessous de cette clarté, on n'affiche même pas la note captée (du bruit). */
+  /** pitchy : en dessous de cette clarté, on n'affiche même pas la note captée (du bruit). */
   clarteVue: 0.5,
-  /** Hauteur : les fréquences possibles d'une voix (Hz). */
+  /** Les fréquences possibles d'une voix (Hz). */
   frequenceMin: 60,
   frequenceMax: 1100,
-  /** Hauteur : médiane sur ce nombre de mesures (contre les sauts d'octave). 3 plutôt que
+  /** pitchy : médiane sur ce nombre de mesures (contre les sauts d'octave). 3 plutôt que
    * 5 : 8 ms de retard en moins, et le banc ne voit pas plus d'erreurs. */
   mediane: 3,
   /** Suiveur : la voix est « sur la note » à moins de `tolerance` cents… */
@@ -40,9 +54,10 @@ export const REGLAGES = {
   /** Calage sur la voix : une note tenue `calageDuree` ms, à `calageEcart` cents près. */
   calageDuree: 300,
   calageEcart: 30,
-  /** Chanter avec les autres voix : le retard du micro (ms), retiré avant de placer une
-   * mesure dans la pièce. */
-  latence: 80,
+  /** Chanter avec les autres voix : le retard du micro et des haut-parleurs (ms), retiré
+   * avant de placer une mesure dans la pièce. Le retard du détecteur est déjà retiré de
+   * l'instant de chaque mesure (80 ms avant SwiftF0 : 40 de pitchy et 40 du reste). */
+  latence: 40,
   /** Lecture : la pulsation (ms par note ; une note pointée en vaut deux). */
   pulsation: 450,
 } as const;

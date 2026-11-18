@@ -1,16 +1,23 @@
 // Le banc d'essai de la hauteur (`banc/hauteur.py`) : les détecteurs de l'app, tels quels,
 // sur les fichiers qu'il a préparés (float32, 48 kHz, un par extrait et par condition).
-// Comme dans la page : toutes les `periode` ms, la fenêtre des derniers échantillons.
+// pitchy comme dans la page jusqu'au 18.11.2026 : toutes les `periode` ms, la fenêtre des
+// derniers échantillons. SwiftF0 (`swiftf0-web`) comme dans la page : des blocs de 256
+// échantillons, rééchantillonnés à 16 kHz, une trame dès qu'elle est prête.
 // Sauté sans BANC_DOSSIER : `pnpm test` ne le lance pas.
 //
 // Chaque détecteur écrit `<extrait>.<détecteur>.json` : t (s, l'instant où la mesure est
-// connue : la fin de la fenêtre), f (Hz, la hauteur brute de McLeod, 0 si aucune) et fv
-// (Hz, ce que l'app garde : 0 si la mesure ne compte pas).
+// connue : la fin de la fenêtre), f (Hz, la hauteur brute, 0 si aucune) et fv (Hz, ce que
+// l'app garde : 0 si la mesure ne compte pas). Pour SwiftF0, t est l'instant de la trame
+// plus son retard le plus long (`SwiftF0.retard`) : deux trames mesurées ensemble ont deux
+// retards (48 et 64 ms), et la fin du bloc qui les donne tombe toutes les 5,3 ms. Avec la fin
+// du bloc, le bilan les décalait de 16 ms l'une sur deux (précision 6,1 cents au lieu de 3,8).
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import * as ort from "onnxruntime-web";
 import { PitchDetector } from "pitchy";
 import { it } from "vitest";
 import { Detecteur } from "../src/audio/hauteur";
+import { SwiftF0, infererAvec, type Inferer } from "../src/audio/swiftf0";
 import { REGLAGES, type Reglages } from "../src/reglages";
 
 const DOSSIER = process.env.BANC_DOSSIER;
@@ -22,13 +29,37 @@ const hz = (midi: number | null) => (midi === null ? 0 : 440 * 2 ** ((midi - 69)
 const VARIANTES: Record<string, Partial<Reglages>> = {
   pitchy: {},
   "pitchy-avant": { clarteGarde: 0.9, mediane: 5 }, // l'app jusqu'au 18.11.2026
-  "pitchy-4096": { fenetre: REGLAGES.fenetreGrave },
+  "pitchy-4096": { fenetre: 4096 },
   "pitchy-c0.8": { clarteMin: 0.8 },
+};
+/** Les variantes de SwiftF0. */
+const VARIANTES_SWIFT: Record<string, Partial<Reglages>> = {
+  "swiftf0-web": {},
 };
 /** BANC_VARIANTES=a,b : seulement celles-là. */
 const CHOISIES = process.env.BANC_VARIANTES?.split(",");
 
-it.skipIf(!DOSSIER)("banc : les détecteurs de l'app", () => {
+/** SwiftF0 sur tout un extrait, par blocs de 256 échantillons, sans rien sauter. */
+async function swiftf0(x: Float32Array, inferer: Inferer, reglages: Reglages) {
+  const d = new SwiftF0(FE, inferer, reglages);
+  const t: number[] = [];
+  const f: number[] = [];
+  const fv: number[] = [];
+  for (let i = 0; i < x.length; i += 256) {
+    const bloc = x.subarray(i, i + 256);
+    d.ajouter(bloc, ((i + bloc.length) / FE) * 1000);
+    for (let r = await d.suivante(); r; r = await d.suivante()) {
+      t.push((r.mesure.temps + d.retard) / 1000);
+      f.push(Number.isFinite(r.hz) && r.hz > 0 ? r.hz : 0);
+      fv.push(hz(r.mesure.midi));
+    }
+  }
+  return { t, f, fv };
+}
+
+it.skipIf(!DOSSIER)("banc : les détecteurs de l'app", async () => {
+  ort.env.wasm.numThreads = 1;
+  const inferer = await infererAvec(ort, readFileSync(new URL("../src/audio/swiftf0.onnx", import.meta.url)));
   const pas = Math.round((REGLAGES.periode / 1000) * FE);
   const durees: Record<string, number> = {};
   let son = 0;
@@ -68,6 +99,13 @@ it.skipIf(!DOSSIER)("banc : les détecteurs de l'app", () => {
         durees[nom] = (durees[nom] ?? 0) + calcul;
         writeFileSync(join(dossier, fichier.replace(/\.f32$/, `.${nom}.json`)), JSON.stringify({ t, f, fv }));
       }
+      for (const [nom, autres] of Object.entries(VARIANTES_SWIFT)) {
+        if (CHOISIES && !CHOISIES.includes(nom)) continue;
+        const debut = performance.now();
+        const sortie = await swiftf0(x, inferer, { ...REGLAGES, ...autres });
+        durees[nom] = (durees[nom] ?? 0) + performance.now() - debut;
+        writeFileSync(join(dossier, fichier.replace(/\.f32$/, `.${nom}.json`)), JSON.stringify(sortie));
+      }
     }
   }
   // Secondes de calcul par seconde de son (ajoutées à celles des autres variantes).
@@ -80,4 +118,4 @@ it.skipIf(!DOSSIER)("banc : les détecteurs de l'app", () => {
   }
   for (const nom in durees) anciennes[nom] = durees[nom] / 1000 / son;
   writeFileSync(fichierDurees, JSON.stringify(anciennes));
-}, 1_800_000);
+}, 7_200_000);

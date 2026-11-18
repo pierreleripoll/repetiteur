@@ -19,5 +19,10 @@ export default defineConfig({
   },
   // Verovio (gravure des pièces à plusieurs voix) pèse 8 Mo : chargé à part, à la demande.
   build: { chunkSizeWarningLimit: 9000 },
+  // SwiftF0 tourne dans un worker module (`audio/swiftf0.worker.ts`), avec onnxruntime-web,
+  // son wasm (15 Mo) et le modèle : rien de cela dans le paquet principal. Vite ne
+  // pré-empaquette pas onnxruntime-web : il cherche son wasm à côté de lui.
+  worker: { format: "es" },
+  optimizeDeps: { exclude: ["onnxruntime-web"] },
   test: { environment: "node" },
 });
