@@ -1,0 +1,81 @@
+# wtx: every branch gets its own worktree, ports, tmux session and agent.
+# Reference for every key: https://github.com/EPFL-ENAC/wtx/blob/main/docs/schema.md
+schema_version = 1
+
+[repo]
+name = "repetiteur"
+base_branch = "main"
+# The single source for the push guard, the completion and the deny rules.
+protected_branches = ["main"]
+land = "merge"
+
+# One offset per worktree, one port per family at that offset.
+[ports]
+
+[[ports.family]]
+name = "web"
+main = 5173   # what the main checkout keeps
+
+[deps]
+
+[[deps.step]]
+if_missing = "node_modules"
+cwd = "."
+run = "pnpm install --frozen-lockfile"
+
+# The agent pane fills the left half, the rest stack on the right.
+[panes]
+
+[[panes.pane]]
+name = "agent"
+role = "agent"
+
+[[panes.pane]]
+name = "web"
+role = "server"
+cmd = "pnpm dev"
+log = true   # mirrored to .wt-logs/, the agent reads it
+
+[[panes.pane]]
+name = "shell"
+role = "shell"
+
+[agent]
+tool = "claude"
+llm = "opus"
+subagent_model = "sonnet"
+auto_compact_window = 500000
+explore_agent_model = "haiku"
+
+# Plan on one model, implement on another. A brief starts on
+# plan_model in plan mode. With Claude, accepting the plan carries
+# the same conversation on to build_model, at the effort the plan
+# asked for. With opencode the agent switch does it, and the
+# effort routing does not apply.
+[agent.orchestration]
+enabled = true
+plan_model = "fable"
+build_model = "opus"
+build_effort = "xhigh"
+
+# Added to the baseline wtx ships. A repo can tighten, never loosen.
+[permissions]
+allow = ["Bash(pnpm test)", "Bash(pnpm run test)", "Bash(pnpm exec vitest run *)", "Bash(pnpm build)", "Bash(pnpm run build)", "Bash(pnpm typecheck)", "Bash(pnpm e2e)", "Bash(wtx curl *)"]
+allowed_domains = ["registry.npmjs.org", "codeload.github.com", "github.com", "pypi.org", "files.pythonhosted.org", "download.pytorch.org"]
+
+# Run by `wtx land --local` and by a local merge.
+[checks]
+lint = ["pnpm typecheck"]
+test = ["pnpm test"]
+
+[[repos]]
+name = "scriptorium"
+path = "../scriptorium"
+access = "read"   # read free, never writable
+base_branch = "main"
+
+[[repos]]
+name = "laus-perennis-design"
+path = "../laus-perennis-design"
+access = "read"   # read free, never writable
+base_branch = "main"

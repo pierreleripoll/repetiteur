@@ -81,6 +81,29 @@ Tout est dans le navigateur (Vue 3, TypeScript, Vite, Pinia). Un seul écran,
 - `banc/` : `hauteur.py` (Python, modèles), `detecteurs.banc.test.ts` (les détecteurs de la
   page, tels quels, sauté sans `BANC_DOSSIER`).
 
+## Les worktrees (wtx)
+
+Chaque branche a son worktree git, sa session tmux et son agent (`wtx.toml`). La session
+s'appelle `repetiteur/<branche>`, ses panneaux sont `agent`, `web`, `shell`.
+
+- Les ports sont par worktree, dans `.env.worktree`, que chaque panneau exporte. Ne jamais
+  écrire un port en dur : lire `WEB_PORT` (`vite.config.ts` le fait déjà).
+- `pnpm dev` tourne déjà dans le panneau `web`. Ne pas le relancer. Son journal est dans
+  `.wt-logs/web.log` : le bac à sable n'atteint pas tmux.
+- `wtx curl web [chemin] [options de curl]` appelle la page de ce worktree, sans demander.
+  Un curl simple tourne dans le bac à sable et n'atteint pas un port local.
+- `/api` va toujours au port 8000 (`SCRIPTORIUM_PORT`) : le serveur de scriptorium, lancé
+  à la main, le même pour tous les worktrees.
+- Travailler sur sa branche seulement. Ne jamais pousser `main`. Quand le travail est prêt,
+  le commiter et le dire. Un humain lance `wtx land <branche>` depuis le dépôt principal
+  (une fusion locale, après `pnpm typecheck` et `pnpm test`) ; il refuse les changements
+  non commités.
+- Un crochet pre-push garde cette règle. S'il refuse, c'est voulu : ne pas le contourner.
+- Ne tuer que ses propres serveurs (le processus lancé, ou le port), jamais par un
+  `pkill -f vite` qui tue ceux des autres worktrees.
+- `../scriptorium` et `../laus-perennis-design` se lisent sans demander, et ne s'écrivent
+  jamais depuis ici.
+
 ## Règles
 
 - Rien de non libre dans ce dépôt : pas de français de Divinum Officium, pas de MusicXML de
